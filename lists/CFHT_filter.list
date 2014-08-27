@@ -1,0 +1,19 @@
+6
+2 1 2
+CFHT/u.fil                                 61     0
+CFHT/g.fil                                 61     0
+CFHT/r.fil                                 55     0
+CFHT/i_new.fil                             38     0
+CFHT/i_old.fil                             65     0
+CFHT/z.fil                                 63     0
+
+files from http://www2.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/megapipe/docs/filters.html
+
+# OLD VERSION
+5
+2 1 2
+CFHT/cfht_u.dat                          1501     0
+CFHT/cfht_g.dat                          1501     0
+CFHT/cfht_r.dat                          1501     0
+CFHT/cfht_i.dat                          1501     0
+CFHT/cfht_z.dat                          1501     0
