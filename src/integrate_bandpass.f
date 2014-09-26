@@ -11,7 +11,7 @@
       character(len=256) :: data_dir
       logical :: data_dir_set = .false.
 
-      integer, parameter :: VEGAZP=0, PHOENIX=1, CK2003=2, ATLAS=3
+      integer, parameter :: VEGAZP=0, PHOENIX=1, CK2003=2, ATLAS_spec=3, ATLAS_SED=4
 
       ! all constants' units are cgs
       double precision, parameter :: Msolbol = 4.75d0, Lsun = 3.8418d33, Msun=1.9891d33
@@ -47,7 +47,7 @@
       type spectrum
          character(len=256) :: filename
          integer :: npts
-         double precision :: FeH, Teff, logg, R, M, Fbol ! R in cm, M in Msun
+         double precision :: FeH, Teff, logg, R, M, Fbol, alpha_Fe ! R in cm, M in Msun
          double precision, allocatable :: wave(:), flux(:), extinction(:)
       end type spectrum                              
 
@@ -204,7 +204,7 @@
       close(1)
       end subroutine read_CK2003
 
-      subroutine read_ATLAS(list,set,num,ierr)
+      subroutine read_ATLAS_spec(list,set,num,ierr)
       character(len=256), intent(in) :: list
       type(spectrum), pointer, intent(out) :: set(:)
       integer, intent(out) :: num, ierr
@@ -226,7 +226,33 @@
          endif
       enddo
       close(1)
-      end subroutine read_ATLAS
+      end subroutine read_ATLAS_spec
+
+
+      subroutine read_ATLAS_sed(list,set,num,ierr)
+      character(len=256), intent(in) :: list
+      type(spectrum), pointer, intent(out) :: set(:)
+      integer, intent(out) :: num, ierr
+      integer :: s
+      ierr=0
+      open(1,file=trim(list),iostat=ierr)
+      if(ierr/=0) return
+      read(1,*) num
+      nullify(set)
+      allocate(set(num))
+      do s=1,num
+         read(1,'(a)') set(s)% filename
+         if(.not.read_on_the_fly)then
+            call load_ATLAS_sed(set(s),ierr)
+            if(set(s)% npts == 0) then
+               write(0,*) '  WARNING: empty spectrum file: ', trim(set(s)% filename)
+               ierr=-1
+            endif   
+         endif
+      enddo
+      close(1)
+      end subroutine read_ATLAS_sed
+
 
       subroutine load_ATLAS_spec(s,ierr)
       type(spectrum), intent(inout) :: s
@@ -246,7 +272,7 @@
             return
          endif
          s% filename = s% filename
-         call read_teff_logg_from_file(s)
+         call read_teff_logg_from_spec_file(s)
          s% feh = 0d0
          s% npts = nwav
          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
@@ -256,7 +282,7 @@
          s% M = 1d0
          s% R = 1d0
       !convert flux from /hz/ster to /AA -> 4*pi*c/lambda^2 
-         s% flux = pi4*clight*s% flux/(s% wave**2) 
+         s% flux = pi4*clight*s% flux/(s% wave * s% wave) 
          s% Fbol = sigma * s% Teff**4
          call write_bin_file(s, binfile,ierr)
       else
@@ -268,8 +294,8 @@
       close(2)
       if(do_check_total_flux) call check_total_flux(s)
       end subroutine load_ATLAS_spec
-      
-      subroutine read_teff_logg_from_file(s)
+
+      subroutine read_teff_logg_from_spec_file(s)
       type(spectrum), intent(inout) :: s
       integer :: tloc, gloc, teff
       character(len=4) :: tchar, gchar
@@ -280,7 +306,70 @@
       read(gchar,'(f4.2)') s% logg
       read(tchar,'(i4)') teff
       s% Teff = dble(teff)
-      end subroutine read_teff_logg_from_file
+      end subroutine read_teff_logg_from_spec_file
+
+      subroutine load_ATLAS_sed(s,ierr)
+      type(spectrum), intent(inout) :: s
+      integer, intent(out) :: ierr
+      character(len=256) :: binfile, filename
+      integer, parameter :: nwav=26500
+      integer :: i
+      ierr=0
+      filename = trim(data_dir) // '/' // trim(s% filename)
+      binfile=trim(filename)//'.bin'
+      open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
+      if(ierr/=0) then  !'no binary file; open ascii file and write binfile
+         close(2)
+         open(2,file=trim(filename),iostat=ierr,status='old')
+         if(ierr/=0) then
+            write(*,*) trim( filename)
+            return
+         endif
+         s% filename = s% filename
+         call read_teff_logg_from_sed_file(s)
+         s% feh = 0d0
+         s% npts = nwav
+         allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
+         do i=1,nwav
+            read(2,*) s% wave(i), s% flux(i)
+         enddo
+         s% M = 1d0
+         s% R = 1d0
+        !convert flux from /hz/ster to /AA -> 4*pi*c/lambda^2 
+         s% flux = pi4*clight*s% flux/(s% wave * s% wave) 
+         s% Fbol = sigma * s% Teff**4
+         call write_bin_file(s, binfile,ierr)
+      else
+         read(2) s% filename, s% npts, s% feh, s% Teff, &
+         s% logg, s% R, s% M, s% Fbol
+         allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
+         read(2) s% wave, s% flux
+      endif
+      close(2)
+      if(do_check_total_flux) call check_total_flux(s)
+      end subroutine load_ATLAS_sed
+      
+      subroutine read_teff_logg_from_sed_file(s)
+      !ATLAS/ckc/at12_feh+0.0_afe+0.0_t5500g5.00.sed
+      type(spectrum), intent(inout) :: s
+      integer :: tloc, gloc, mloc, aloc, teff
+      character(len=4) :: gchar, mchar, achar
+      character(len=5) :: tchar
+      mloc = index(s% filename,"feh",back=.true.)
+      mchar= s% filename(mloc+3:mloc+6)
+      aloc = index(s% filename,"afe",back=.true.)
+      achar = s% filename(aloc+3:aloc+6)
+      gloc = index(s% filename,"g",back=.true.)
+      gchar= s% filename(gloc+1:gloc+4)
+      tloc = index(s% filename,"_t",back=.true.)
+      tchar = s% filename(tloc+2:gloc-1)
+      read(gchar,'(f4.2)') s% logg
+      read(tchar,'(i5)') teff
+      read(mchar,'(f4.2)') s% FeH
+      read(mchar,'(f4.2)') s% alpha_Fe
+      s% Teff = dble(teff)
+      !write(*,*) s% Teff, s% logg, s% FeH, s% alpha_Fe
+      end subroutine read_teff_logg_from_sed_file
 
       subroutine read_phoenix(list,set,num,ierr)
       character(len=256), intent(in) :: list
@@ -314,8 +403,10 @@
       select case(choice)
       case(PHOENIX) 
          call load_phoenix_spec(s,ierr)
-      case(ATLAS)
+      case(ATLAS_spec)
          call load_ATLAS_spec(s,ierr)
+      case(ATLAS_SED)
+         call load_ATLAS_sed(s,ierr)
       end select
       end subroutine load_spec
 

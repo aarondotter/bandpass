@@ -6,13 +6,18 @@
       character(len=256) :: filter_list, my_data_dir
       character(len=16) :: suffix, arg
       integer :: count, choice, phot_system
-      logical :: do_CNONa = .false., do_NGC6752 = .false., do_BTSettl=.true.
+      logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
       !integer, parameter:: num_Av = 4, num_Rv = 1
       integer, parameter :: num_Av=13, num_Rv=3
       double precision :: Av(num_Av), Rv(num_Rv)
       
-      !Av = [ 0.0d0, 0.12d0, 0.17d0, 0.15d0 ]
+      !for Marcella
+      !Av = [ 0.0d0, 0.12d0, 0.15d0 ]
+
+      !for NGC6752
+      !Av=[0d0, 0.12d0, 0.17d0, 0.15d0]
       !Rv = [  3.1d0 ]
+
       Av = [ 0d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, &
              1d0, 2d0, 4d0, 6d0, 8d0, 1d1, 1.2d1 ]
       Rv = [ 2d0, 3.1d0, 4d0 ]
@@ -129,9 +134,12 @@
       case(CK2003)
          write(*,*)    '    doing Castelli & Kurucz . . . '
          spectra_list = trim(data_dir)//'/lists/odfnew.list'
-      case(ATLAS)
-         write(*,*)    '    doing ATLAS/Synthe . . . '
+      case(ATLAS_spec)
+         write(*,*)    '    doing ATLAS/Synthe spectra . . . '
          spectra_list = trim(data_dir) // '/lists/ATLAS.list'
+      case(ATLAS_SED)
+         write(*,*)    '    doing ATLAS/Synthe SEDs . . . '
+         spectra_list = trim(data_dir) // '/lists/ATLAS_SED.list'
       end select
 
       if(debug) write(*,*) '     read vega . . .'
@@ -192,14 +200,22 @@
             prefix=trim(adjustl(line(i0:)))
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_ck2003(filename,spectra,num_spectra,ierr)
-         case(ATLAS)
+         case(ATLAS_spec)
             read(99,'(a)',iostat=ierr) filename
             if(ierr/=0) exit
             if(filename(1:1)=='#') cycle
             prefix=filename(:index(filename,'.')-1)
             filename=trim(data_dir)//'/ATLAS/lists/'//trim(filename)
             write(*,*) trim(filename), ' ', trim(prefix)
-            call read_ATLAS(filename,spectra,num_spectra,ierr)
+            call read_ATLAS_spec(filename,spectra,num_spectra,ierr)
+         case(ATLAS_sed)
+            read(99,'(a)',iostat=ierr) filename
+            if(ierr/=0) exit
+            if(filename(1:1)=='#') cycle
+            prefix=filename(:index(filename,'.')-1)
+            filename=trim(data_dir)//'/ATLAS/lists/'//trim(filename)
+            write(*,*) trim(filename), ' ', trim(prefix)
+            call read_ATLAS_sed(filename,spectra,num_spectra,ierr)
          end select
 
          nullify(mag)
@@ -246,7 +262,7 @@
                outfile=trim(data_dir)//'/phx/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
             case(CK2003)
                outfile=trim(data_dir)//'/kur/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
-            case(ATLAS)
+            case(ATLAS_spec:ATLAS_sed)
                outfile=trim(data_dir)//'/kur/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
             end select
             write(0,*) '   output to ', trim(outfile)
@@ -371,6 +387,7 @@
          write(*,*) ' PHOENIX        =  1  '
          write(*,*) ' Castelli&Kurucz=  2  '
          write(*,*) ' SYNTHE high res=  3  '
+         write(*,*) ' SYNTHE  low res=  4  '
          write(*,*) '                      '
          write(*,*) '        N = 1 - 14    '
          write(*,*) ' HST_WFC3       =  1  '
