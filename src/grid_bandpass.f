@@ -8,7 +8,7 @@
       integer :: count, choice, phot_system
       logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
       !integer, parameter:: num_Av = 4, num_Rv = 1
-      integer, parameter :: num_Av=13, num_Rv=3
+      integer, parameter :: num_Av=1, num_Rv=1
       double precision :: Av(num_Av), Rv(num_Rv)
       
       !for Marcella
@@ -18,9 +18,14 @@
       !Av=[0d0, 0.12d0, 0.17d0, 0.15d0]
       !Rv = [  3.1d0 ]
 
-      Av = [ 0d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, &
-             1d0, 2d0, 4d0, 6d0, 8d0, 1d1, 1.2d1 ]
-      Rv = [ 2d0, 3.1d0, 4d0 ]
+      !test
+      Rv=[3.1d0]
+      Av=[0d0]
+
+      !general
+      !Av = [ 0d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, &
+      !       1d0, 2d0, 4d0, 6d0, 8d0, 1d1, 1.2d1 ]
+      !Rv = [ 2d0, 3.1d0, 4d0 ]
 
       count = command_argument_count()
 
@@ -140,6 +145,9 @@
       case(ATLAS_SED)
          write(*,*)    '    doing ATLAS/Synthe SEDs . . . '
          spectra_list = trim(data_dir) // '/lists/ATLAS_SED.list'
+      case(RAUCH)
+         write(*,*)    '    doing Rauch post-AGB spectra . . . '
+         spectra_list = trim(data_dir) // '/lists/Rauch.list'
       end select
 
       if(debug) write(*,*) '     read vega . . .'
@@ -216,6 +224,14 @@
             filename=trim(data_dir)//'/ATLAS/lists/'//trim(filename)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_ATLAS_sed(filename,spectra,num_spectra,ierr)
+         case(RAUCH)
+            read(99,'(a)',iostat=ierr) filename
+            if(ierr/=0) exit
+            if(filename(1:1)=='#') cycle
+            prefix=filename(:index(filename,'.')-1)
+            filename=trim(data_dir)//'/Rauch/lists/'//trim(filename)
+            write(*,*) trim(filename), ' ', trim(prefix)
+            call read_Rauch(filename,spectra,num_spectra,ierr)
          end select
 
          nullify(mag)
@@ -264,6 +280,8 @@
                outfile=trim(data_dir)//'/kur/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
             case(ATLAS_spec:ATLAS_sed)
                outfile=trim(data_dir)//'/kur/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
+            case(RAUCH)
+               outfile=trim(data_dir)//'/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
             end select
             write(0,*) '   output to ', trim(outfile)
             open(1,file=trim(outfile))
@@ -274,8 +292,10 @@
                do i=1,num_spectra
                   write(1,4) spectra(i)% Teff, spectra(i)% logg, spectra(i)% FeH, Av(k), Rv(j), mag(:,k,j,i)
                enddo
-               write(1,*)
-               write(1,*)
+               if(k<num_Av)then
+                  write(1,*)
+                  write(1,*)
+               endif
             enddo
             close(1)
          enddo
@@ -286,9 +306,9 @@
       deallocate(filter,ZP,filter_name)
 
  1    format(a1,1x,2i4)
- 2    format(a1,i5, i5, 3i6, 99(5x,i2,5x))
- 3    format(a1,a5, a5, 3a6 ,99a12)
- 4    format(f6.0,f5.1,3f6.2,99f12.6)
+ 2    format(a1,i7, i5, 3i6, 99(5x,i2,5x))
+ 3    format(a1,a7, a5, 3a6 ,99a12)
+ 4    format(f8.0,f5.1,3f6.2,99f12.6)
 
       end subroutine do_one_set
 
@@ -371,6 +391,11 @@
          filter_list = 'lists/swift.list'
          suffix='.Swift'
          zero_point_type = zero_point_AB
+      case(FSPS)
+         write(*,*) ' doing FSPS'
+         filter_list='lists/fsps.list'
+         suffix='.FSPS'
+         zero_point_type=zero_point_AB
       case default
          filter_list = ''
          suffix = ''
@@ -380,7 +405,7 @@
       end subroutine setup
 
       subroutine write_usage_details
-         write(*,*) ' usage: ./bandpass [M] [N]'
+         write(*,*) ' usage: ./bandpass [M] [N] [O]'
          write(*,*) '                      '
          write(*,*) '        M = 0 - 3     '
          write(*,*) ' Vega/AB/ST ZPs =  0  '
@@ -388,6 +413,7 @@
          write(*,*) ' Castelli&Kurucz=  2  '
          write(*,*) ' SYNTHE high res=  3  '
          write(*,*) ' SYNTHE  low res=  4  '
+         write(*,*) ' RAUCH post-AGB =  5  ' 
          write(*,*) '                      '
          write(*,*) '        N = 1 - 14    '
          write(*,*) ' HST_WFC3       =  1  '
@@ -405,7 +431,9 @@
          write(*,*) ' SkyMapper      = 13  '
          write(*,*) ' LSST           = 14  '
          write(*,*) ' Swift          = 15  '
+         write(*,*) ' FSPS           = 16  '
          write(*,*)
+
       end subroutine write_usage_details
 
       end program test_bandpass

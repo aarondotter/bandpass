@@ -11,17 +11,18 @@
       character(len=256) :: data_dir
       logical :: data_dir_set = .false.
 
-      integer, parameter :: VEGAZP=0, PHOENIX=1, CK2003=2, ATLAS_spec=3, ATLAS_SED=4
+      integer, parameter :: VEGAZP=0, PHOENIX=1, CK2003=2, ATLAS_spec=3, ATLAS_SED=4, RAUCH=5
 
       ! all constants' units are cgs
       double precision, parameter :: Msolbol = 4.75d0, Lsun = 3.8418d33, Msun=1.9891d33
-      double precision, parameter :: G = 6.67428d-8, sigma = 5.6704d-5 ! 2006 CODATA
+      double precision, parameter :: G = 6.67384d-8, sigma = 5.670373d-5 ! 2010 CODATA
       double precision, parameter :: clight=2.99792458d18      ! speed of light in Angstrom/s
-      double precision, parameter :: planck_h = 6.62606896d-27 ! Planck's constant (erg s)
-      double precision, parameter :: pc = 3.0856770322224d18, pc10=10d0*pc ! 10 parsec
-      double precision, parameter :: pi4 = 1.6d1*atan(1d0)
+      double precision, parameter :: planck_h = 6.62606957d-27 ! Planck's constant (erg s)
+      double precision, parameter :: pc = 3.0856770322224d18, pc10=1d1*pc ! 10 parsec
+      double precision, parameter :: pi = 4d0*atan(1d0), pi4=4d0*pi
       double precision, parameter :: AAcm = 1d8  ! AA per cm
-      double precision, parameter :: phx_flux_conv = AAcm   ! PHOENIX unit conversion
+      double precision, parameter :: phx_flux_conv = 1d0/AAcm   ! PHOENIX unit conversion
+      double precision, parameter :: rauch_flux_conv = pi/AAcm !Rauch unit conversion
       double precision, parameter :: ST_flux_const = 3.631d-09 ! erg/s/cm^2/AA
       double precision, parameter :: AB_flux_const = 3.631d-20 ! erg/s/cm^2/Hz
       double precision, parameter :: const = Lsun / (pi4 * pc10 * pc10) ! for BC
@@ -40,6 +41,7 @@
       integer, parameter :: SkyMapper = 13
       integer, parameter :: LSST = 14
       integer, parameter :: Swift = 15
+      integer, parameter :: FSPS  = 16
       integer, parameter :: zero_point_Vega = 1, zero_point_AB = 2, zero_point_ST = 3
       integer :: zero_point_type
       logical, parameter :: debug = .false., read_on_the_fly = .true., do_check_total_flux=.false.
@@ -312,7 +314,8 @@
       type(spectrum), intent(inout) :: s
       integer, intent(out) :: ierr
       character(len=256) :: binfile, filename
-      integer, parameter :: nwav=26500
+      !integer, parameter :: nwav=26500
+      integer, parameter :: nwav=47378
       integer :: i
       ierr=0
       filename = trim(data_dir) // '/' // trim(s% filename)
@@ -395,6 +398,30 @@
       close(1)
       end subroutine read_phoenix
 
+      subroutine read_Rauch(list,set,num,ierr)
+      character(len=256), intent(in) :: list
+      type(spectrum), pointer, intent(out) :: set(:)
+      integer, intent(out) :: num, ierr
+      integer :: s
+      ierr=0
+      open(1,file=trim(list),iostat=ierr)
+      if(ierr/=0) return
+      read(1,*) num
+      nullify(set)
+      allocate(set(num))
+      do s=1,num
+         read(1,'(a)') set(s)% filename
+         if(.not.read_on_the_fly)then
+            call load_rauch_spec(set(s),ierr)
+            if(set(s)% npts == 0) then
+               write(0,*) '  WARNING: empty spectrum file: ', trim(set(s)% filename)
+               ierr=-1
+            endif   
+         endif
+      enddo
+      close(1)
+      end subroutine read_Rauch
+
       subroutine load_spec(choice,s,ierr)
       integer, intent(in) :: choice
       type(spectrum), intent(inout) :: s
@@ -407,8 +434,67 @@
          call load_ATLAS_spec(s,ierr)
       case(ATLAS_SED)
          call load_ATLAS_sed(s,ierr)
+      case(RAUCH)
+         call load_rauch_spec(s,ierr)
       end select
       end subroutine load_spec
+
+      subroutine load_rauch_spec(s,ierr)
+      type(spectrum), intent(inout) :: s
+      integer, intent(out) :: ierr
+      character(len=256) :: binfile, filename
+      character(len=60) :: line
+      integer :: i
+      ierr=0
+      filename=trim(data_dir) // '/' // trim(s% filename)
+      binfile=trim(filename) // '.bin'
+      open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
+      if(ierr/=0)then
+         close(2)
+         open(2,file=trim(filename),iostat=ierr,status='old')
+         if(ierr/=0)then
+            write(*,*) trim(filename)
+            return
+         endif
+
+         !read header
+         do i=1,35
+            read(2,'(a)') line
+            if(i==6) then       !get Teff
+               read(line(10:18),*) s% Teff
+            elseif(i==7)then
+               read(line(10:18),*) s% logg
+            elseif(i==35)then
+               read(line(3:7),'(i5)') s% npts
+            endif
+         enddo
+         
+         s% FeH = 0d0
+
+         allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
+
+         do i=1,s% npts
+            read(2,'(e18.12,e12.4)') s% wave(i), s% flux(i)
+         enddo
+         close(2)
+
+         s% flux = rauch_flux_conv * s% flux
+         s% Fbol = sigma * s% Teff**4
+         s% R    = 1d0
+         s% M    = 1d0
+
+         call write_bin_file(s, binfile, ierr)
+         
+      else
+         read(2) s% filename, s% npts, s% feh, s% Teff, &
+         s% logg, s% R, s% M, s% Fbol
+         allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
+         read(2) s% wave, s% flux
+      endif
+      close(2)
+      if(do_check_total_flux) call check_total_flux(s)
+      end subroutine load_rauch_spec
+      
 
       subroutine load_phoenix_spec(s,ierr)
       type(spectrum), intent(inout) :: s
@@ -432,7 +518,7 @@
          read(2,*) s% flux
          s% M = 1d0
          s% R = 1d0
-         s% flux = s% flux/phx_flux_conv
+         s% flux = phx_flux_conv * s% flux
          s% Fbol = sigma * s% Teff**4
          call write_bin_file(s, binfile,ierr)
       else
@@ -449,12 +535,8 @@
       !check integrated flux vs. expected from sigma*Teff^4
       type(spectrum), intent(in) :: s
       double precision :: flux1, flux2
-      integer :: i
       flux1 = s% Fbol
-      flux2 = 0d0
-      do i=2,s% npts
-         flux2=flux2 + s% flux(i) * (s% wave(i) - s%wave(i-1))
-      enddo
+      flux2 = tsum(s% wave, s% flux)
       write(*,*) s% Teff, flux1, flux2, flux1/flux2
       end subroutine check_total_flux
 
@@ -529,18 +611,25 @@
       integer, intent(out) :: ierr
       integer :: i
       double precision :: integral
+      double precision, allocatable :: filter(:)
       ierr = 0
       integral = 0d0
       !check that filter and spectrum are compatible
       if(s% npts < 2) return
       if( f% wave(1) > s% wave(s% npts) .or. f% wave(f% npts) < s% wave(1)) then
          write(0,*) "*WARNING: No overlap between spectrum and filter*"
+         write(*,*) f% wave(1), f% wave(f% npts)
+         write(*,*) s% wave(1), s% wave(s% npts)
+         write(*,*) s% filename
+         stop
          return
       endif
-      do i=2,s% npts !integrate over s: integral = flux* filter *wave * dwave
-         integral=integral+filter_interp(f,s% wave(i))*s% extinction(i)* &
-                            s% flux(i)*s% wave(i)*(s% wave(i)-s% wave(i-1))
+      allocate(filter(s% npts))
+      do i=1,s% npts
+         filter(i) = filter_interp(f,s% wave(i))
       enddo
+      integral = tsum(s% wave, filter*s% flux*s% extinction*s% wave)
+      deallocate(filter)
       end function integrate_bandpass
 
       subroutine R_from_Teff_and_logg(s)
@@ -562,7 +651,9 @@
       loc = max(loc,2)
       loc = min(loc, f% npts - 2)
       call interp(f% wave(loc-1:loc+2),q,w,4)
-      forall(i=1:4) q(i) = q(i) * f% flux(loc-2+i)
+      do i=1,4
+         q(i) = q(i)*f% flux(loc-2+i)
+      enddo
       filter_interp = sum(q)
       end function filter_interp
 
@@ -610,5 +701,15 @@
          a(2) = (3*s2-2*yp2-yp3)/h2
          a(3) = (yp2+yp3-2*s2)/h2**2
       end subroutine interp_4pt_pm
+
+      !from Charlie Conroy's FSPS, simple trapezoidal integration
+      !                                              \int y(x) dx
+      function tsum(x,y)
+      double precision, intent(in) :: x(:), y(:)
+      double precision :: tsum
+      integer :: n
+      n=size(x)
+      tsum = 0.5d0*sum( abs(x(2:n) - x(1:n-1)) * (y(2:n) + y(1:n-1)) )
+      end function tsum
 
       end module bandpass
