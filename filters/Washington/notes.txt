@@ -1,0 +1,5 @@
+Because Bessell presents the filter throughputs as lambda*thruput(lambda)
+the files Wash_[CMT1T2].dat have been refactored and normalized to be
+thruput(lambda). The original curves are in filters.txt.
+The reason for rescaling the filters is that the bandpass code performs
+the integration as lambda*flux*thruput*dlambda.
