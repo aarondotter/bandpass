@@ -1,0 +1,8 @@
+5
+2 1 2
+UBVRI/bessell_B.par.txt                    21     0
+UBVRI/bessell_I.par.txt                    23     0
+UBVRI/bessell_R.par.txt                    24     0
+UBVRI/bessell_U.par.txt                    25     0
+UBVRI/bessell_V.par.txt                    24     0
+
