@@ -371,7 +371,7 @@
       read(gchar,'(f4.2)') s% logg
       read(tchar,'(i5)') teff
       read(mchar,'(f4.2)') s% FeH
-      read(mchar,'(f4.2)') s% alpha_Fe
+      read(achar,'(f4.2)') s% alpha_Fe
       s% Teff = dble(teff)
       !write(*,*) s% Teff, s% logg, s% FeH, s% alpha_Fe
       end subroutine read_teff_logg_from_sed_file
