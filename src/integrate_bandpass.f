@@ -19,7 +19,7 @@
       double precision, parameter :: clight=2.99792458d18      ! speed of light in Angstrom/s
       double precision, parameter :: planck_h = 6.62606957d-27 ! Planck's constant (erg s)
       double precision, parameter :: pc = 3.0856770322224d18, pc10=1d1*pc ! 10 parsec
-      double precision, parameter :: pi = 4d0*atan(1d0), pi4=4d0*pi
+      double precision, parameter :: pi = 3.141592653589793d0, pi4=4d0*pi
       double precision, parameter :: AAcm = 1d8  ! AA per cm
       double precision, parameter :: phx_flux_conv = 1d0/AAcm   ! PHOENIX unit conversion
       double precision, parameter :: rauch_flux_conv = pi/AAcm !Rauch unit conversion
@@ -107,6 +107,7 @@
       ST% extinction = 1d0
       end subroutine read_vega
 
+      !not used
       double precision function STflux(wave)
       double precision, intent(in) :: wave
       double precision :: Junk
@@ -114,6 +115,7 @@
       STflux = ST_flux_const
       end function STflux
 
+      !not used
       double precision function ABflux(wave)
       double precision, intent(in) :: wave
       ABflux = AB_flux_const * clight / (wave*wave)
@@ -263,7 +265,7 @@
       integer, parameter :: nwav=1700600 !nwav=30000
       integer :: i
       ierr=0
-      filename = trim(data_dir) // '/' // trim(s% filename)
+      filename = trim(s% filename)
       binfile=trim(filename)//'.bin'
       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
       if(ierr/=0) then  !'no binary file; open ascii file and write binfile
@@ -318,7 +320,7 @@
       integer, parameter :: nwav=47378
       integer :: i
       ierr=0
-      filename = trim(data_dir) // '/' // trim(s% filename)
+      filename = trim(s% filename)
       binfile=trim(filename)//'.bin'
       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
       if(ierr/=0) then  !'no binary file; open ascii file and write binfile
@@ -446,7 +448,7 @@
       character(len=60) :: line
       integer :: i
       ierr=0
-      filename=trim(data_dir) // '/' // trim(s% filename)
+      filename=trim(s% filename)
       binfile=trim(filename) // '.bin'
       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
       if(ierr/=0)then
@@ -501,7 +503,7 @@
       integer, intent(out) :: ierr
       character(len=256) :: binfile, filename
       ierr=0
-      filename = trim(data_dir) // '/' // trim(s% filename)
+      filename = trim(s% filename)
       binfile=trim(filename)//'.bin'
       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
       if(ierr/=0) then  !'no binary file; open ascii file and write binfile

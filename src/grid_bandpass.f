@@ -3,26 +3,21 @@
       use bandpass
 
       implicit none
-      character(len=256) :: filter_list, my_data_dir
+      character(len=256) :: filter_list, my_data_dir, spectra_list
       character(len=16) :: suffix, arg
-      integer :: count, choice, phot_system
-      logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
+      integer :: count, choice, phot_system, ierr
+      !logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
       !integer, parameter:: num_Av = 4, num_Rv = 1
       integer, parameter :: num_Av=1, num_Rv=1
       double precision :: Av(num_Av), Rv(num_Rv)
+
+      ierr = 0
       
-      !for Marcella
-      !Av = [ 0.0d0, 0.12d0, 0.15d0 ]
-
-      !for NGC6752
-      !Av=[0d0, 0.12d0, 0.17d0, 0.15d0]
-      !Rv = [  3.1d0 ]
-
-      !test
+      !test - no reddening
       Rv=[3.1d0]
       Av=[0d0]
 
-      !general
+      !standard Av,Rv 
       !Av = [ 0d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, &
       !       1d0, 2d0, 4d0, 6d0, 8d0, 1d1, 1.2d1 ]
       !Rv = [ 2d0, 3.1d0, 4d0 ]
@@ -41,12 +36,15 @@
          call get_command_argument(2,arg)
          read(arg,*) phot_system
 
+         call get_command_argument(3,spectra_list)
+         
+         
          call setup(phot_system)
 
          if(choice==VEGAZP)then
-            call do_vega(filter_list)
+            call do_vega(filter_list,ierr)
          else
-            call do_one_set(choice,filter_list,suffix)
+            call do_one_set(choice,filter_list,spectra_list,suffix,ierr)
          endif
       else
          call write_usage_details
@@ -54,14 +52,23 @@
 
       contains
       
-      subroutine do_vega(filter_list)
+      subroutine do_vega(filter_list,ierr)
       character(len=256), intent(in) :: filter_list
+      integer, intent(out) :: ierr
       character(len=13), pointer :: filter_name(:)
       type(spectrum) :: vega, AB, ST
       type(spectrum), allocatable :: filter_set(:)
-      integer :: i, ierr, i0, i1, num_filters
+      integer :: i, i0, i1, num_filters
       double precision, allocatable :: Vega_ZP(:), ST_ZP(:), AB_ZP(:)
 
+      ierr=0
+      
+      if(.not.data_dir_set)then
+         write(*,*) 'data directory not set in grid_bandpass'
+         ierr=-1
+         return
+      endif
+      
       if(debug) write(*,*) '     read vega . . .'
       vega% filename=vega_filename
       AB% filename = vega_filename
@@ -103,17 +110,18 @@
 
       end subroutine do_vega
 
-      subroutine do_one_set(choice,filter_list,suffix)
+      subroutine do_one_set(choice,filter_list,spectra_list,suffix,ierr)
       integer, intent(in) :: choice
-      character(len=256), intent(in) :: filter_list
+      character(len=256), intent(in) :: filter_list, spectra_list
       character(len=16), intent(in) :: suffix
-      character(len=256) :: spectra_list, outfile, filename, prefix, line
+      integer, intent(out) :: ierr
+      character(len=256) :: outfile, filename, prefix, line
       character(len=10), allocatable :: filter_name(:)
       character(len=2) :: cRv
       type(spectrum) :: vega, AB, ST
       type(spectrum), allocatable :: filter(:)
       type(spectrum), pointer :: spectra(:)
-      integer :: i, ierr, i0, i1, j, k, l, num_filters, num_spectra
+      integer :: i, i0, i1, j, k, l, num_filters, num_spectra
       double precision :: tmp_mag
       double precision, allocatable :: ZP(:)
       double precision, pointer :: mag(:,:,:,:)
@@ -121,34 +129,11 @@
 
       ierr=0
 
-      select case(choice)
-      case(PHOENIX)
-         if(do_CNONa)then
-            write(*,*) '    doing CNONa . . . '
-            spectra_list = trim(data_dir)//'/lists/phoenix_CNONa.list'
-         else if(do_NGC6752)then
-            write(*,*) '    doing NGC6752 . . . '
-            spectra_list = trim(data_dir)//'/lists/NGC6752.list'
-         else if(do_BTSettl)then
-            write(*,*) '    doing BT-Settl . . . '
-            spectra_list = trim(data_dir)//'/lists/BTSettl.list'
-         else
-            write(*,*) '    doing PHOENIX . . . '
-            spectra_list = trim(data_dir)//'/lists/phoenix.list'
-         endif
-      case(CK2003)
-         write(*,*)    '    doing Castelli & Kurucz . . . '
-         spectra_list = trim(data_dir)//'/lists/odfnew.list'
-      case(ATLAS_spec)
-         write(*,*)    '    doing ATLAS/Synthe spectra . . . '
-         spectra_list = trim(data_dir) // '/lists/ATLAS.list'
-      case(ATLAS_SED)
-         write(*,*)    '    doing ATLAS/Synthe SEDs . . . '
-         spectra_list = trim(data_dir) // '/lists/ATLAS_SED.list'
-      case(RAUCH)
-         write(*,*)    '    doing Rauch post-AGB spectra . . . '
-         spectra_list = trim(data_dir) // '/lists/Rauch.list'
-      end select
+      if(.not.data_dir_set)then
+         write(*,*) 'data directory not set in grid_bandpass'
+         ierr=-1
+         return
+      endif
 
       if(debug) write(*,*) '     read vega . . .'
       vega% filename=vega_filename
@@ -195,8 +180,7 @@
             read(99,'(a)',iostat=ierr) filename
             if(ierr/=0) exit
             if(filename(1:1)=='#') cycle
-            prefix=filename(:index(filename,'.')-1)
-            filename=trim(data_dir)//'/PHOENIX/lists/'//trim(filename)
+            prefix=filename(:index(filename,'.',back=.true.)-1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_phoenix(filename,spectra,num_spectra,ierr)
          case(CK2003)
@@ -204,7 +188,6 @@
             read(99,'(a)',iostat=ierr) line
             if(ierr/=0) exit
             i0=index(line,'  Z')
-            filename=trim(adjustl(line(:i0)))
             prefix=trim(adjustl(line(i0:)))
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_ck2003(filename,spectra,num_spectra,ierr)
@@ -212,24 +195,27 @@
             read(99,'(a)',iostat=ierr) filename
             if(ierr/=0) exit
             if(filename(1:1)=='#') cycle
-            prefix=filename(:index(filename,'.')-1)
-            filename=trim(data_dir)//'/ATLAS/lists/'//trim(filename)
+            i0=index(filename,'/',back=.true.)+1
+            i1=index(filename,'.',back=.true.)-1
+            prefix=filename(i0:i1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_ATLAS_spec(filename,spectra,num_spectra,ierr)
          case(ATLAS_sed)
             read(99,'(a)',iostat=ierr) filename
             if(ierr/=0) exit
             if(filename(1:1)=='#') cycle
-            prefix=filename(:index(filename,'.')-1)
-            filename=trim(data_dir)//'/ATLAS/lists/'//trim(filename)
+            i0=index(filename,'/',back=.true.)+1
+            i1=index(filename,'.',back=.true.)-1
+            prefix=filename(i0:i1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_ATLAS_sed(filename,spectra,num_spectra,ierr)
          case(RAUCH)
             read(99,'(a)',iostat=ierr) filename
             if(ierr/=0) exit
             if(filename(1:1)=='#') cycle
-            prefix=filename(:index(filename,'.')-1)
-            filename=trim(data_dir)//'/Rauch/lists/'//trim(filename)
+            i0=index(filename,'/',back=.true.)+1
+            i1=index(filename,'.',back=.true.)-1
+            prefix=filename(i0:i1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_Rauch(filename,spectra,num_spectra,ierr)
          end select
@@ -273,18 +259,10 @@
 
          do j=1,num_Rv
             write(cRv,'(i2)') int(10*Rv(j))
-            select case(choice)
-            case(PHOENIX)
-               outfile=trim(data_dir)//'/phx/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
-            case(CK2003)
-               outfile=trim(data_dir)//'/kur/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
-            case(ATLAS_spec:ATLAS_sed)
-               outfile=trim(data_dir)//'/kur/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
-            case(RAUCH)
-               outfile=trim(data_dir)//'/'//trim(prefix)//trim(suffix)//'.Rv' // cRv
-            end select
+            outfile=trim(prefix)//trim(suffix)//'.Rv' // cRv
             write(0,*) '   output to ', trim(outfile)
-            open(1,file=trim(outfile))
+            open(1,file=trim(outfile),iostat=ierr)
+            if(ierr/=0) stop
             write(1,1) '#', num_spectra, num_Av
             do k=1,num_Av
                write(1,2) '#', (i,i=1,num_filters+5)
@@ -405,7 +383,7 @@
       end subroutine setup
 
       subroutine write_usage_details
-         write(*,*) ' usage: ./bandpass [M] [N] [O]'
+         write(*,*) ' usage: ./bandpass [M] [N] [list]'
          write(*,*) '                      '
          write(*,*) '        M = 0 - 3     '
          write(*,*) ' Vega/AB/ST ZPs =  0  '
