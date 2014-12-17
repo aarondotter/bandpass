@@ -357,7 +357,6 @@
       end subroutine load_ATLAS_sed
       
       subroutine read_teff_logg_from_sed_file(s)
-      !ATLAS/ckc/at12_feh+0.0_afe+0.0_t5500g5.00.sed
       type(spectrum), intent(inout) :: s
       integer :: tloc, gloc, mloc, aloc, teff
       character(len=4) :: gchar, mchar, achar
