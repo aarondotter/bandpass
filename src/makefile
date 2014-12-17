@@ -1,7 +1,7 @@
 FC=gfortran
-FLAGS=-O3 -ffree-form -fopenmp
+FLAGS=-O2 -ffree-form -fopenmp
 WARN= -Wall -pedantic
-DBG= #-g -fcheck=all -fbacktrace
+DBG= -g -fcheck=all -fbacktrace
 COMPILE=$(FC) $(WARN) $(DBG) $(FLAGS)
 
 BAND=grid_bandpass

@@ -336,7 +336,9 @@
          s% npts = nwav
          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
          do i=1,nwav
-            read(2,*) s% wave(i), s% flux(i)
+            read(2,'(f14.3,e12.4)',iostat=ierr) s% wave(i), s% flux(i)
+            !check for NaNs, replace with zero
+            if(s% flux(i) - s% flux(i) /= 0) s% flux(i) = 0d0
          enddo
          s% M = 1d0
          s% R = 1d0
@@ -373,7 +375,7 @@
       read(mchar,'(f4.2)') s% FeH
       read(achar,'(f4.2)') s% alpha_Fe
       s% Teff = dble(teff)
-      !write(*,*) s% Teff, s% logg, s% FeH, s% alpha_Fe
+      write(*,*) s% Teff, s% logg, s% FeH, s% alpha_Fe
       end subroutine read_teff_logg_from_sed_file
 
       subroutine read_phoenix(list,set,num,ierr)
