@@ -183,6 +183,7 @@
             prefix=filename(:index(filename,'.',back=.true.)-1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_phoenix(filename,spectra,num_spectra,ierr)
+
          case(CK2003)
             line=''
             read(99,'(a)',iostat=ierr) line
@@ -190,7 +191,9 @@
             i0=index(line,'  Z')
             prefix=trim(adjustl(line(i0:)))
             write(*,*) trim(filename), ' ', trim(prefix)
+            read_on_the_fly = .false.
             call read_ck2003(filename,spectra,num_spectra,ierr)
+
          case(ATLAS_spec)
             read(99,'(a)',iostat=ierr) filename
             if(ierr/=0) exit
@@ -200,6 +203,7 @@
             prefix=filename(i0:i1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_ATLAS_spec(filename,spectra,num_spectra,ierr)
+
          case(ATLAS_sed)
             read(99,'(a)',iostat=ierr) filename
             if(ierr/=0) exit
@@ -209,6 +213,7 @@
             prefix=filename(i0:i1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_ATLAS_sed(filename,spectra,num_spectra,ierr)
+
          case(RAUCH)
             read(99,'(a)',iostat=ierr) filename
             if(ierr/=0) exit
@@ -218,7 +223,10 @@
             prefix=filename(i0:i1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_Rauch(filename,spectra,num_spectra,ierr)
+
          end select
+
+         write(*,*) ' num_spectra = ', num_spectra
 
          nullify(mag)
          allocate(mag(num_filters,num_Av,num_Rv,num_spectra))
@@ -263,7 +271,7 @@
             write(0,*) '   output to ', trim(outfile)
             open(1,file=trim(outfile),iostat=ierr)
             if(ierr/=0) stop
-            write(1,1) '#', num_spectra, num_Av
+            write(1,1) '#', num_spectra, num_Av, num_filters
             do k=1,num_Av
                write(1,2) '#', (i,i=1,num_filters+5)
                write(1,3) '#', 'Teff ', 'logg ', '[Fe/H]', '  Av ', '  Rv ', filter_name(1:num_filters)
@@ -283,7 +291,7 @@
       
       deallocate(filter,ZP,filter_name)
 
- 1    format(a1,1x,2i4)
+ 1    format(a1,1x,3i4)
  2    format(a1,i7, i5, 3i6, 99(5x,i2,5x))
  3    format(a1,a7, a5, 3a6 ,99a12)
  4    format(f8.0,f5.1,3f6.2,99f12.6)

@@ -9,7 +9,7 @@
       character(len=256), parameter :: vega_filename = 'Vega/alpha_lyr_stis_005.dat'
       !character(len=256), parameter :: vega_filename = 'Vega/alpha_lyr_stis_004.dat'
       character(len=256) :: data_dir
-      logical :: data_dir_set = .false.
+      logical :: data_dir_set = .false., read_on_the_fly = .true.
 
       integer, parameter :: VEGAZP=0, PHOENIX=1, CK2003=2, ATLAS_spec=3, ATLAS_SED=4, RAUCH=5
 
@@ -44,7 +44,7 @@
       integer, parameter :: FSPS  = 16
       integer, parameter :: zero_point_Vega = 1, zero_point_AB = 2, zero_point_ST = 3
       integer :: zero_point_type
-      logical, parameter :: debug = .false., read_on_the_fly = .true., do_check_total_flux=.false.
+      logical, parameter :: debug = .false., do_check_total_flux=.false.
 
       type spectrum
          character(len=256) :: filename
@@ -412,6 +412,7 @@
       read(1,*) num
       nullify(set)
       allocate(set(num))
+
       do s=1,num
          read(1,'(a)') set(s)% filename
          if(.not.read_on_the_fly)then
