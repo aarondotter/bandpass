@@ -9,7 +9,7 @@
       !logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
       !integer, parameter:: num_Av = 4, num_Rv = 1
       integer, parameter :: num_Av=1, num_Rv=1
-      double precision :: Av(num_Av), Rv(num_Rv)
+      real(dp) :: Av(num_Av), Rv(num_Rv)
 
       ierr = 0
       
@@ -59,7 +59,7 @@
       type(spectrum) :: vega, AB, ST
       type(spectrum), allocatable :: filter_set(:)
       integer :: i, i0, i1, num_filters
-      double precision, allocatable :: Vega_ZP(:), ST_ZP(:), AB_ZP(:)
+      real(dp), allocatable :: Vega_ZP(:), ST_ZP(:), AB_ZP(:)
 
       ierr=0
       
@@ -122,9 +122,9 @@
       type(spectrum), allocatable :: filter(:)
       type(spectrum), pointer :: spectra(:)
       integer :: i, i0, i1, j, k, l, num_filters, num_spectra
-      double precision :: tmp_mag
-      double precision, allocatable :: ZP(:)
-      double precision, pointer :: mag(:,:,:,:)
+      real(dp) :: tmp_mag
+      real(dp), allocatable :: ZP(:)
+      real(dp), pointer :: mag(:,:,:,:)
       logical :: AOK
 
       ierr=0

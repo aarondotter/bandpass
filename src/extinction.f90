@@ -11,16 +11,19 @@
 
       private
 
+      integer, parameter :: sp = selected_real_kind(p=5)
+      integer, parameter :: dp = selected_real_kind(p=15)
+
       public :: Al_div_Av_CCM
 
       contains
 
       !elemental: can be called on a scalar or an array in the same way
       elemental function Al_div_Av_CCM(lambda,Rv) result(Alam)
-         double precision, intent(in) :: lambda !in angstrom
-         double precision, intent(in) :: Rv ! Av/E(B-V)
-         double precision :: a, b, x, y, Alam
-         double precision, parameter :: small = 1d-8, min_x = 0d0 ! 2d-1
+         real(dp), intent(in) :: lambda !in angstrom
+         real(dp), intent(in) :: Rv ! Av/E(B-V)
+         real(dp) :: a, b, x, y, Alam
+         real(dp), parameter :: small = 1d-8, min_x = 0d0 ! 2d-1
         
          ! x is wavenumber in 1/micron : x = 10^4/lambda
          ! impose an upper bound in the UV
@@ -54,8 +57,8 @@
          
       !special functions Fa and Fb for UV region
       elemental function Fa(x) result(y)
-         double precision, intent(in) :: x
-         double precision :: y
+         real(dp), intent(in) :: x
+         real(dp) :: y
          if(x<5.9d0)then
             y = 0d0
          else
@@ -64,8 +67,8 @@
       end function Fa
 
       elemental function Fb(x) result(y)
-         double precision, intent(in) :: x
-         double precision :: y
+         real(dp), intent(in) :: x
+         real(dp) :: y
          if(x<5.9d0)then
             y = 0d0
          else

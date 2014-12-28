@@ -4,6 +4,9 @@
       
       implicit none
 
+      integer, parameter :: sp = selected_real_kind(p=5)
+      integer, parameter :: dp = selected_real_kind(p=15)
+
       ! important files: for Vega, 005 is newer than 004
       ! also note that Vega/alpha_lyr*.dat contain Vega flux in 1st column, AB in 2nd, ST in 3rd
       character(len=256), parameter :: vega_filename = 'Vega/alpha_lyr_stis_005.dat'
@@ -14,18 +17,18 @@
       integer, parameter :: VEGAZP=0, PHOENIX=1, CK2003=2, ATLAS_spec=3, ATLAS_SED=4, RAUCH=5
 
       ! all constants' units are cgs
-      double precision, parameter :: Msolbol = 4.75d0, Lsun = 3.8418d33, Msun=1.9891d33
-      double precision, parameter :: G = 6.67384d-8, sigma = 5.670373d-5 ! 2010 CODATA
-      double precision, parameter :: clight=2.99792458d18      ! speed of light in Angstrom/s
-      double precision, parameter :: planck_h = 6.62606957d-27 ! Planck's constant (erg s)
-      double precision, parameter :: pc = 3.0856770322224d18, pc10=1d1*pc ! 10 parsec
-      double precision, parameter :: pi = 3.141592653589793d0, pi4=4d0*pi
-      double precision, parameter :: AAcm = 1d8  ! AA per cm
-      double precision, parameter :: phx_flux_conv = 1d0/AAcm   ! PHOENIX unit conversion
-      double precision, parameter :: rauch_flux_conv = pi/AAcm !Rauch unit conversion
-      double precision, parameter :: ST_flux_const = 3.631d-09 ! erg/s/cm^2/AA
-      double precision, parameter :: AB_flux_const = 3.631d-20 ! erg/s/cm^2/Hz
-      double precision, parameter :: const = Lsun / (pi4 * pc10 * pc10) ! for BC
+      real(dp), parameter :: Msolbol = 4.75d0, Lsun = 3.8418d33, Msun=1.9891d33
+      real(dp), parameter :: G = 6.67384d-8, sigma = 5.670373d-5 ! 2010 CODATA
+      real(dp), parameter :: clight=2.99792458d18      ! speed of light in Angstrom/s
+      real(dp), parameter :: planck_h = 6.62606957d-27 ! Planck's constant (erg s)
+      real(dp), parameter :: pc = 3.0856770322224d18, pc10=1d1*pc ! 10 parsec
+      real(dp), parameter :: pi = 3.141592653589793d0, pi4=4d0*pi
+      real(dp), parameter :: AAcm = 1d8  ! AA per cm
+      real(dp), parameter :: phx_flux_conv = 1d0/AAcm   ! PHOENIX unit conversion
+      real(dp), parameter :: rauch_flux_conv = pi/AAcm !Rauch unit conversion
+      real(dp), parameter :: ST_flux_const = 3.631d-09 ! erg/s/cm^2/AA
+      real(dp), parameter :: AB_flux_const = 3.631d-20 ! erg/s/cm^2/Hz
+      real(dp), parameter :: const = Lsun / (pi4 * pc10 * pc10) ! for BC
       integer, parameter :: HST_WFC3 = 1
       integer, parameter :: HST_ACS_WFC = 2
       integer, parameter :: HST_ACS_HRC = 3
@@ -49,8 +52,8 @@
       type spectrum
          character(len=256) :: filename
          integer :: npts
-         double precision :: FeH, Teff, logg, R, M, Fbol, alpha_Fe ! R in cm, M in Msun
-         double precision, allocatable :: wave(:), flux(:), extinction(:)
+         real(dp) :: FeH, Teff, logg, R, M, Fbol, alpha_Fe ! R in cm, M in Msun
+         real(dp), allocatable :: wave(:), flux(:), extinction(:)
       end type spectrum                              
 
       contains
@@ -108,16 +111,16 @@
       end subroutine read_vega
 
       !not used
-      double precision function STflux(wave)
-      double precision, intent(in) :: wave
-      double precision :: Junk
+      real(dp) function STflux(wave)
+      real(dp), intent(in) :: wave
+      real(dp) :: Junk
       junk=wave !so compiler doesn't complain
       STflux = ST_flux_const
       end function STflux
 
       !not used
-      double precision function ABflux(wave)
-      double precision, intent(in) :: wave
+      real(dp) function ABflux(wave)
+      real(dp), intent(in) :: wave
       ABflux = AB_flux_const * clight / (wave*wave)
       end function ABflux
 
@@ -127,7 +130,7 @@
       type(spectrum), allocatable, intent(out) :: set(:)
       integer, intent(out) :: num, ierr
       integer :: f, w, pts, skip, num_cols, col_wave, col_flux
-      double precision, pointer :: line(:)
+      real(dp), pointer :: line(:)
       
       ierr=0
       filename=trim(data_dir)//'/'//trim(list)
@@ -168,7 +171,7 @@
       integer, intent(out) :: num, ierr
       integer, parameter :: nwav=1221, natm=476
       integer :: i
-      double precision :: wl(nwav),fl(nwav),bb(nwav),feh
+      real(dp) :: wl(nwav),fl(nwav),bb(nwav),feh
 
       ierr=0
       num= natm
@@ -538,7 +541,7 @@
       subroutine check_total_flux(s)
       !check integrated flux vs. expected from sigma*Teff^4
       type(spectrum), intent(in) :: s
-      double precision :: flux1, flux2
+      real(dp) :: flux1, flux2
       flux1 = s% Fbol
       flux2 = tsum(s% wave, s% flux)
       write(*,*) s% Teff, flux1, flux2, flux1/flux2
@@ -553,7 +556,7 @@
 
       subroutine extinction_for_spectrum(s,Av,Rv)
       type(spectrum), intent(inout) :: s
-      double precision, intent(in) :: Av, Rv
+      real(dp), intent(in) :: Av, Rv
       if(Av > 0d0 .and. Rv > 0d0)then
          s% extinction = 1d1**(-0.4d0*Av*Al_div_Av_CCM(s% wave,Rv))
       else
@@ -614,8 +617,8 @@
       type(spectrum), intent(in) :: s, f
       integer, intent(out) :: ierr
       integer :: i
-      double precision :: integral
-      double precision, allocatable :: filter(:)
+      real(dp) :: integral
+      real(dp), allocatable :: filter(:)
       ierr = 0
       integral = 0d0
       !check that filter and spectrum are compatible
@@ -641,11 +644,11 @@
       s% R = sqrt(G * s% M * Msun/10d0**s% logg)
       end subroutine R_from_Teff_and_logg
 
-      double precision function filter_interp(f,w)
+      real(dp) function filter_interp(f,w)
       type(spectrum), intent(in) :: f
-      double precision, intent(in) :: w
+      real(dp), intent(in) :: w
       integer :: loc, i
-      double precision :: q(4)
+      real(dp) :: q(4)
       if(w < f% wave(1) .or. w > f% wave(f% npts))then
          filter_interp = 0d0
          return
@@ -670,8 +673,8 @@
 !  n  is the number of points to be used, interpolating polynomial
 !     has order n-1 
       integer, intent(in) :: n
-      double precision, intent(in) :: a(n), x
-      double precision, intent(out) :: b(n)
+      real(dp), intent(in) :: a(n), x
+      real(dp), intent(out) :: b(n)
       integer :: i,j
       do i=1,n
          b(i)=1.0d0
@@ -683,10 +686,10 @@
 
       subroutine interp_4pt_pm(x, y, a) 
          ! returns coefficients for monotonic cubic interpolation from x(2) to x
-         double precision, intent(in)    :: x(4)    ! junction points, strictly monotoni
-         double precision, intent(in)    :: y(4)    ! data values at x's
-         double precision, intent(out)   :: a(3)    ! coefficients
-         double precision :: h1, h2, h3, s1, s2, s3, p2, p3, as2, ss2, yp2, yp3
+         real(dp), intent(in)    :: x(4)    ! junction points, strictly monotoni
+         real(dp), intent(in)    :: y(4)    ! data values at x's
+         real(dp), intent(out)   :: a(3)    ! coefficients
+         real(dp) :: h1, h2, h3, s1, s2, s3, p2, p3, as2, ss2, yp2, yp3
          ! for x(2) <= x <= x(3) and dx = x-x(2), 
          ! y(x) = y(2) + dx*(a(1) + dx*(a(2) + dx*a(3)))
          h1 = x(2)-x(1)
@@ -709,8 +712,8 @@
       !from Charlie Conroy's FSPS, simple trapezoidal integration
       !                                              \int y(x) dx
       function tsum(x,y)
-      double precision, intent(in) :: x(:), y(:)
-      double precision :: tsum
+      real(dp), intent(in) :: x(:), y(:)
+      real(dp) :: tsum
       integer :: n
       n=size(x)
       tsum = 0.5d0*sum( abs(x(2:n) - x(1:n-1)) * (y(2:n) + y(1:n-1)) )
