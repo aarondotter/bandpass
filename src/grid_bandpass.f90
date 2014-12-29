@@ -7,20 +7,20 @@
       character(len=16) :: suffix, arg
       integer :: count, choice, phot_system, ierr
       !logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
-      !integer, parameter:: num_Av = 4, num_Rv = 1
-      integer, parameter :: num_Av=1, num_Rv=1
+      !integer, parameter:: num_Av = 1, num_Rv = 1
+      integer, parameter :: num_Av=12, num_Rv=1
       real(dp) :: Av(num_Av), Rv(num_Rv)
 
       ierr = 0
       
       !test - no reddening
-      Rv=[3.1d0]
-      Av=[0d0]
+      !Rv=[3.1d0]
+      !Av=[0d0]
 
       !standard Av,Rv 
-      !Av = [ 0d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, &
-      !       1d0, 2d0, 4d0, 6d0, 8d0, 1d1, 1.2d1 ]
-      !Rv = [ 2d0, 3.1d0, 4d0 ]
+      Av = [ 0d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, &
+             1d0, 2d0, 4d0, 6d0, 8d0, 1d1 ]
+      Rv = [ 3.1d0 ]
 
       count = command_argument_count()
 
@@ -37,7 +37,6 @@
          read(arg,*) phot_system
 
          call get_command_argument(3,spectra_list)
-         
          
          call setup(phot_system)
 
@@ -115,7 +114,7 @@
       character(len=256), intent(in) :: filter_list, spectra_list
       character(len=16), intent(in) :: suffix
       integer, intent(out) :: ierr
-      character(len=256) :: outfile, filename, prefix, line
+      character(len=256) :: outfile, filename, prefix
       character(len=10), allocatable :: filter_name(:)
       character(len=2) :: cRv
       type(spectrum) :: vega, AB, ST
@@ -174,30 +173,25 @@
 
       open(99,file=trim(spectra_list))
       do while(.true.)
-
+         read(99,'(a)',iostat=ierr) filename
+         if(ierr/=0) exit
+         if(filename(1:1)=='#'.or.filename=='') cycle
+         
          select case(choice)
          case(PHOENIX)
-            read(99,'(a)',iostat=ierr) filename
-            if(ierr/=0) exit
-            if(filename(1:1)=='#') cycle
             prefix=filename(:index(filename,'.',back=.true.)-1)
             write(*,*) trim(filename), ' ', trim(prefix)
             call read_phoenix(filename,spectra,num_spectra,ierr)
 
          case(CK2003)
-            line=''
-            read(99,'(a)',iostat=ierr) line
-            if(ierr/=0) exit
-            i0=index(line,'  Z')
-            prefix=trim(adjustl(line(i0:)))
+            i0=index(filename,'  Z')
+            prefix=trim(adjustl(filename(i0:)))
+            filename = filename(:i0-1)
             write(*,*) trim(filename), ' ', trim(prefix)
             read_on_the_fly = .false.
             call read_ck2003(filename,spectra,num_spectra,ierr)
 
          case(ATLAS_spec)
-            read(99,'(a)',iostat=ierr) filename
-            if(ierr/=0) exit
-            if(filename(1:1)=='#') cycle
             i0=index(filename,'/',back=.true.)+1
             i1=index(filename,'.',back=.true.)-1
             prefix=filename(i0:i1)
@@ -205,9 +199,6 @@
             call read_ATLAS_spec(filename,spectra,num_spectra,ierr)
 
          case(ATLAS_sed)
-            read(99,'(a)',iostat=ierr) filename
-            if(ierr/=0) exit
-            if(filename(1:1)=='#') cycle
             i0=index(filename,'/',back=.true.)+1
             i1=index(filename,'.',back=.true.)-1
             prefix=filename(i0:i1)
@@ -215,9 +206,6 @@
             call read_ATLAS_sed(filename,spectra,num_spectra,ierr)
 
          case(RAUCH)
-            read(99,'(a)',iostat=ierr) filename
-            if(ierr/=0) exit
-            if(filename(1:1)=='#') cycle
             i0=index(filename,'/',back=.true.)+1
             i1=index(filename,'.',back=.true.)-1
             prefix=filename(i0:i1)
@@ -225,8 +213,6 @@
             call read_Rauch(filename,spectra,num_spectra,ierr)
 
          end select
-
-         write(*,*) ' num_spectra = ', num_spectra
 
          nullify(mag)
          allocate(mag(num_filters,num_Av,num_Rv,num_spectra))
