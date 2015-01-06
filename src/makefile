@@ -5,7 +5,7 @@ DBG= -g -fcheck=all -fbacktrace
 COMPILE=$(FC) $(FLAGS) $(WARN) $(DBG)
 
 BAND=grid_bandpass
-OBJS=integrate_bandpass.o extinction.o
+OBJS=integrate_bandpass.o extinction.o const.o
 
 $(BAND): $(OBJS) grid_bandpass.o
 	$(COMPILE) -o ../$(BAND) $^
@@ -14,7 +14,7 @@ $(BAND): $(OBJS) grid_bandpass.o
 	$(COMPILE) -c $<
 
 grid_bandpass.o: integrate_bandpass.o
-integrate_bandpass.o: extinction.o
+integrate_bandpass.o: extinction.o const.o
 
 .PHONY: clean check
 

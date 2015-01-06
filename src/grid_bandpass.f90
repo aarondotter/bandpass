@@ -1,5 +1,6 @@
 program test_bandpass
 
+  use const
   use bandpass
 
   implicit none
@@ -231,7 +232,8 @@ contains
              do k=1,num_Av
                 call extinction_for_spectrum(spectra(i),Av(k),Rv(j))
                 do l=1,num_filters
-                   tmp_mag = const*integrate_bandpass(spectra(i),filter(l),ierr)/(spectra(i)% Fbol * ZP(l))
+                   tmp_mag = solar_const*integrate_bandpass(spectra(i),filter(l),ierr) &
+                             / (spectra(i)% Fbol * ZP(l))
                    mag(l,k,j,i) = Msolbol + 2.5d0*log10(tmp_mag)
                    if(ierr/=0) then
                       write(0,*) 'failed in integrate_bandpass'
