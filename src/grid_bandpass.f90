@@ -139,7 +139,11 @@ contains
     vega% filename=vega_filename
 
     call read_vega(vega,AB,ST,ierr)
-    if(ierr/=0) stop 'failed in read_vega'
+    if(ierr/=0) then 
+       write(*,*) 'failed in read_vega'
+       return
+    endif
+
     if(debug)then
        write(*,*) '   filename = ', trim(vega% filename)
        write(*,*) '   npts = ', vega% npts
@@ -149,8 +153,11 @@ contains
 
     if(debug) write(*,*) '      read filters . . .'
     call read_filters(filter_list,filter,num_filters,ierr)
-    if(ierr/=0) stop 'failed in read_filters'
-    
+    if(ierr/=0) then
+       write(*,*) 'failed in read_filters'
+       return
+    endif
+
     allocate(ZP(num_filters),filter_name(num_Filters))
 
     if(debug) write(*,*) '     integrate bandpasses . . .'
@@ -168,17 +175,31 @@ contains
        case default
           stop 'incorrect choice of zero point!'
        end select
-       if(ierr/=0) stop 'failed in integrate_bandpass'
+       if(ierr/=0) then
+          write(*,*) 'failed in integrate_bandpass'
+          return
+       endif
+          
        if(debug) write(*,'(i3,3x,a30,2f20.10)') i, filter(i)% filename, ZP(i), -2.5d0*log10(ZP(i))
     enddo
 
-    open(99,file=trim(spectra_list),iostat=ierr)
-    if(ierr/=0) return
+    if(choice==BB) then
+       filename = spectra_list
+    else
+       open(99,file=trim(spectra_list),iostat=ierr)
+       if(ierr/=0) then
+          write(*,*) 'failed to open spectra_list'
+          return
+       endif
+    endif
+
     do while(.true.)
-       read(99,'(a)',iostat=ierr) filename
-       if(ierr/=0) exit
-       if(filename(1:1)=='#'.or.filename=='') cycle
-       
+       if(choice/=BB)then
+          read(99,'(a)',iostat=ierr) filename
+          if(ierr/=0) exit
+          if(filename(1:1)=='#'.or.filename=='') cycle
+       endif
+
        select case(choice)
        case(PHOENIX)
           prefix=filename(:index(filename,'.',back=.true.)-1)
@@ -213,8 +234,20 @@ contains
           prefix=filename(i0:i1)
           write(*,*) trim(filename), ' ', trim(prefix)
           call read_Rauch(filename,spectra,num_spectra,ierr)
-          
+       
+       case(BB)
+          prefix = filename
+          !write(*,*) 'blackbody spectra with filename: ', trim(prefix)
+          call create_BBs(spectra,num_spectra,ierr)
+
        end select
+
+       if(ierr/=0)then
+          write(*,*)
+          write(*,*) ' I quit! '
+          write(*,*)
+          return
+       endif
 
        nullify(mag)
        allocate(mag(num_filters,num_Av,num_Rv,num_spectra))
@@ -279,8 +312,9 @@ contains
 
        deallocate(mag,spectra)
        
+       if(choice==BB) exit
     enddo
-    close(99)
+    if(choice/=BB) close(99)
       
     deallocate(filter,ZP,filter_name)
 
@@ -392,6 +426,7 @@ contains
     write(*,*) ' SYNTHE high res=  3  '
     write(*,*) ' SYNTHE  low res=  4  '
     write(*,*) ' RAUCH post-AGB =  5  ' 
+    write(*,*) ' Blackbody      =  6  '
     write(*,*) '                      '
     write(*,*) '        N = 1 - 14    '
     write(*,*) ' HST_WFC3       =  1  '

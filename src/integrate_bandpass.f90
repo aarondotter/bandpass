@@ -1,34 +1,16 @@
    module bandpass
      
      use const
+     use blackbody
      use extinction
       
      implicit none
 
      character(len=256) :: data_dir
      logical :: data_dir_set = .false., read_on_the_fly = .true.
+     logical, parameter :: debug = .false., do_check_total_flux=.true.
 
-     integer, parameter :: VEGAZP=0, PHOENIX=1, CK2003=2, ATLAS_spec=3, ATLAS_SED=4, RAUCH=5
-
-     integer, parameter :: HST_WFC3 = 1
-     integer, parameter :: HST_ACS_WFC = 2
-     integer, parameter :: HST_ACS_HRC = 3
-     integer, parameter :: HST_WFPC2 = 4
-     integer, parameter :: SDSS = 5
-     integer, parameter :: CFHT = 6
-     integer, parameter :: UBVRIJHKsKp = 7
-     integer, parameter :: WashDDOuvby = 8
-     integer, parameter :: UKIDSS = 9 
-     integer, parameter :: WISE = 10
-     integer, parameter :: PanSTARRS = 11
-     integer, parameter :: SPITZER = 12
-     integer, parameter :: SkyMapper = 13
-     integer, parameter :: LSST = 14
-     integer, parameter :: Swift = 15
-     integer, parameter :: FSPS  = 16
-     integer, parameter :: zero_point_Vega = 1, zero_point_AB = 2, zero_point_ST = 3
      integer :: zero_point_type
-     logical, parameter :: debug = .false., do_check_total_flux=.false.
      
      type spectrum
         character(len=256) :: filename
@@ -45,7 +27,7 @@
        data_dir_set = .true.
      end subroutine set_data_dir
      
-     subroutine write_bin_file( s, binfile,ierr)
+     subroutine write_bin_file(s, binfile,ierr)
        type(spectrum), intent(in) :: s
        character(len=256), intent(in) :: binfile
        integer, intent(out) :: ierr
@@ -144,6 +126,46 @@
        close(1)
        deallocate(line)
      end subroutine read_filters
+
+     subroutine create_BBs(set,num,ierr)
+       type(spectrum), pointer, intent(out) :: set(:)
+       integer, intent(out) :: num,ierr
+       integer, parameter :: nwav=10000
+       integer :: i
+       real(dp) :: wave(nwav), dw, dT, Tlo, Thi
+
+       ierr = 0
+       num = 25
+       
+       nullify(set)
+       allocate(set(num))
+
+       wave(1) = 1d0
+       wave(nwav) = 1d8
+       dw = log(wave(nwav)/wave(1))/real(nwav-1,kind=dp)
+       do i=2,nwav-1
+          wave(i)=exp(log(wave(i-1))+dw)
+       enddo
+
+       set(:)% logg = 0d0
+       Tlo = 5d4
+       Thi = 1d6
+       set(1)% Teff = Tlo
+       set(num)% Teff = Thi
+       dT = log(Thi/Tlo)/real(num-1,kind=dp)
+       do i=1,num
+          if(i>1) set(i)% Teff = exp(log(set(i-1)% Teff) + dT)
+          allocate(set(i)% wave(nwav), set(i)% flux(nwav), set(i)% extinction(nwav))
+          set(i)% npts = nwav
+          set(i)% wave = wave
+          set(i)% feh = 0d0
+          set(i)% extinction = 1d0
+          set(i)% Fbol = sigma * set(i)% Teff * set(i)% Teff * set(i)% Teff * set(i)% Teff
+          set(i)% flux = BBflux(wave,set(i)% Teff)
+       enddo
+
+     end subroutine create_BBs
+
 
      subroutine read_CK2003(file,set,num,ierr)
        !CK2003 flux in ergs/cm**2/s/hz/ster
