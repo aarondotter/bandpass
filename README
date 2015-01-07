@@ -1,0 +1,5 @@
+This program is designed to take a variety of different synthetic spectra and compute bolometric corrections from them.
+
+It supports filters from more than 10 different telescopes and cameras.
+
+It also includes a function to compute blackbody spectra.
