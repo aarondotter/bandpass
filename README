@@ -3,3 +3,5 @@ This program is designed to take a variety of different synthetic spectra and co
 It supports filters from more than 10 different telescopes and cameras.
 
 It also includes a function to compute blackbody spectra.
+
+The code is designed to work on different spectra in parallel using OpenMP.
