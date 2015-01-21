@@ -15,7 +15,7 @@ contains
     l = lam/AAcm
     l5 = l*l*l*l*l
     BBflux = 2d0*h*c*c/(l5*(exp(h*c/(l*kB*T))-1d0))
-    BBflux = BBflux*rauch_flux_conv
+    BBflux = BBflux*WD_flux_conv
   end function BBflux
 
 end module blackbody

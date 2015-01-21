@@ -7,8 +7,8 @@
      implicit none
 
      character(len=256) :: data_dir
-     logical :: data_dir_set = .false., read_on_the_fly = .true.
-     logical, parameter :: debug = .false., do_check_total_flux=.true.
+     logical :: data_dir_set = .false., read_on_the_fly = .false.
+     logical, parameter :: debug = .false., do_check_total_flux=.false.
 
      integer :: zero_point_type
      
@@ -129,32 +129,61 @@
 
      subroutine create_BBs(set,num,ierr)
        type(spectrum), pointer, intent(out) :: set(:)
-       integer, intent(out) :: num,ierr
-       integer, parameter :: nwav=10000
+       integer, intent(out) :: num, ierr
+       integer, parameter :: nwav=20000
        integer :: i
-       real(dp) :: wave(nwav), dw, dT, Tlo, Thi
+       integer, parameter :: numT = 106
+       real(dp) :: wave(nwav), dw
+       real(dp) :: Teff(numT)
 
        ierr = 0
-       num = 25
+       num = numT
        
        nullify(set)
        allocate(set(num))
 
-       wave(1) = 1d0
-       wave(nwav) = 1d8
+       !set the temperature scale for MIST bolometric correction tables
+       Teff(1) = 1.0d3; Teff(2) = 1.5d3; Teff(3) = 2.0d3; Teff(4)=2.5d3
+       Teff(5) = 2.8d3; Teff(6) = 3.0d3; Teff(7) = 3.2d3; Teff(8)=3.5d3
+       
+       !  3,750 to    13,000
+       do i=9,46
+          Teff(i) = Teff(i-1) + 2.5d2
+       enddo
+
+       ! 14,000 to    50,000
+       do i=47,83
+          Teff(i) = Teff(i-1) + 1.0d3
+       enddo
+  
+       ! 60,000 to   200,000
+       do i=84,98
+          Teff(i) = Teff(i-1) + 1.0d4
+       enddo
+
+       !200,000 to 1,000,000
+       do i=99,numT
+          Teff(i) = Teff(i-1) + 1.0d5
+       enddo
+  
+       if(debug) then
+          do i=1,numT
+             write(*,*) i, Teff(i)
+          enddo
+       endif
+
+       !set the wavelength scale
+       wave(1) = 1d-1
+       wave(nwav) = 1d10
        dw = log(wave(nwav)/wave(1))/real(nwav-1,kind=dp)
        do i=2,nwav-1
           wave(i)=exp(log(wave(i-1))+dw)
        enddo
 
-       set(:)% logg = 0d0
-       Tlo = 5d4
-       Thi = 1d6
-       set(1)% Teff = Tlo
-       set(num)% Teff = Thi
-       dT = log(Thi/Tlo)/real(num-1,kind=dp)
+       set(:)% logg = 5d0
+
        do i=1,num
-          if(i>1) set(i)% Teff = exp(log(set(i-1)% Teff) + dT)
+          set(i)% Teff = Teff(i)
           allocate(set(i)% wave(nwav), set(i)% flux(nwav), set(i)% extinction(nwav))
           set(i)% npts = nwav
           set(i)% wave = wave
@@ -165,7 +194,6 @@
        enddo
 
      end subroutine create_BBs
-
 
      subroutine read_CK2003(file,set,num,ierr)
        !CK2003 flux in ergs/cm**2/s/hz/ster
@@ -214,7 +242,8 @@
        close(1)
      end subroutine read_CK2003
 
-     subroutine read_ATLAS_spec(list,set,num,ierr)
+     subroutine read_spec(choice,list,set,num,ierr)
+       integer, intent(in) :: choice
        character(len=256), intent(in) :: list
        type(spectrum), pointer, intent(out) :: set(:)
        integer, intent(out) :: num, ierr
@@ -228,7 +257,7 @@
        do s=1,num
           read(1,'(a)') set(s)% filename
           if(.not.read_on_the_fly)then
-             call load_ATLAS_spec(set(s),ierr)
+             call load_spec(choice,set(s),ierr)
              if(set(s)% npts == 0) then
                 write(0,*) '  WARNING: empty spectrum file: ', trim(set(s)% filename)
                 ierr=-1
@@ -236,33 +265,7 @@
           endif
        enddo
        close(1)
-     end subroutine read_ATLAS_spec
-
-
-     subroutine read_ATLAS_sed(list,set,num,ierr)
-       character(len=256), intent(in) :: list
-       type(spectrum), pointer, intent(out) :: set(:)
-       integer, intent(out) :: num, ierr
-       integer :: s
-       ierr=0
-       open(1,file=trim(list),iostat=ierr)
-       if(ierr/=0) return
-       read(1,*) num
-       nullify(set)
-       allocate(set(num))
-       do s=1,num
-          read(1,'(a)') set(s)% filename
-          if(.not.read_on_the_fly)then
-             call load_ATLAS_sed(set(s),ierr)
-             if(set(s)% npts == 0) then
-                write(0,*) '  WARNING: empty spectrum file: ', trim(set(s)% filename)
-                ierr=-1
-             endif
-          endif
-       enddo
-       close(1)
-     end subroutine read_ATLAS_sed
-     
+     end subroutine read_spec     
 
      subroutine load_ATLAS_spec(s,ierr)
        type(spectrum), intent(inout) :: s
@@ -322,8 +325,8 @@
        type(spectrum), intent(inout) :: s
        integer, intent(out) :: ierr
        character(len=256) :: binfile, filename
-       !integer, parameter :: nwav=26500
-       integer, parameter :: nwav=47378
+       integer, parameter :: nwav=26500
+       !integer, parameter :: nwav=47378
        integer :: i
        ierr=0
        filename = trim(s% filename)
@@ -346,6 +349,9 @@
              !check for NaNs, replace with zero
              if(s% flux(i) - s% flux(i) /= 0) s% flux(i) = 0d0
           enddo
+          !check for less than zero:
+          s% flux = abs(s% flux)
+
           s% M = 1d0
           s% R = 1d0
           !convert flux from /hz/ster to /AA -> 4*pi*c/lambda^2 
@@ -382,55 +388,6 @@
        s% Teff = dble(teff)
        write(*,*) s% Teff, s% logg, s% FeH, s% alpha_Fe
      end subroutine read_teff_logg_from_sed_file
-     
-     subroutine read_phoenix(list,set,num,ierr)
-       character(len=256), intent(in) :: list
-       type(spectrum), pointer, intent(out) :: set(:)
-       integer, intent(out) :: num, ierr
-       integer :: s
-       ierr=0
-       open(1,file=trim(list),iostat=ierr)
-       if(ierr/=0) return
-       read(1,*) num
-       nullify(set)
-       allocate(set(num))
-       do s=1,num
-          read(1,'(a)') set(s)% filename
-          if(.not.read_on_the_fly)then
-             call load_phoenix_spec(set(s),ierr)
-             if(set(s)% npts == 0) then
-                write(0,*) '  WARNING: empty spectrum file: ', trim(set(s)% filename)
-                ierr=-1
-             endif
-          endif
-       enddo
-       close(1)
-     end subroutine read_phoenix
-     
-     subroutine read_Rauch(list,set,num,ierr)
-       character(len=256), intent(in) :: list
-       type(spectrum), pointer, intent(out) :: set(:)
-       integer, intent(out) :: num, ierr
-       integer :: s
-       ierr=0
-       open(1,file=trim(list),iostat=ierr)
-       if(ierr/=0) return
-       read(1,*) num
-       nullify(set)
-       allocate(set(num))
-       
-       do s=1,num
-          read(1,'(a)') set(s)% filename
-          if(.not.read_on_the_fly)then
-             call load_rauch_spec(set(s),ierr)
-             if(set(s)% npts == 0) then
-                write(0,*) '  WARNING: empty spectrum file: ', trim(set(s)% filename)
-                ierr=-1
-             endif
-          endif
-       enddo
-       close(1)
-     end subroutine read_Rauch
      
      subroutine load_spec(choice,s,ierr)
        integer, intent(in) :: choice
@@ -488,7 +445,7 @@
           enddo
           close(2)
           
-          s% flux = rauch_flux_conv * s% flux
+          s% flux = WD_flux_conv * s% flux
           s% Fbol = sigma * s% Teff**4
           s% R    = 1d0
           s% M    = 1d0

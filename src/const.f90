@@ -52,7 +52,7 @@
     real(dp), parameter :: pi = 3.141592653589793d0, pi4=4d0*pi
     real(dp), parameter :: AAcm = 1d8  ! AA per cm
     real(dp), parameter :: phx_flux_conv = 1d0/AAcm   ! PHOENIX unit conversion
-    real(dp), parameter :: rauch_flux_conv = pi/AAcm !Rauch unit conversion
+    real(dp), parameter :: WD_flux_conv = pi/AAcm !Rauch/Koester unit conversion
     real(dp), parameter :: ST_flux_const = 3.631d-09 ! erg/s/cm^2/AA
     real(dp), parameter :: AB_flux_const = 3.631d-20 ! erg/s/cm^2/Hz
     real(dp), parameter :: solar_const = Lsun / (pi4 * pc10 * pc10) ! for BC
