@@ -7,12 +7,13 @@
 
      !index for each data type
      integer, parameter :: VEGAZP=0
-     integer, parameter :: PHOENIX=1
+     integer, parameter :: BB=1
      integer, parameter :: CK2003=2
-     integer, parameter :: ATLAS_spec=3
-     integer, parameter :: ATLAS_SED=4
-     integer, parameter :: RAUCH=5
-     integer, parameter :: BB=6
+     integer, parameter :: PHOENIX=3
+     integer, parameter :: ATLAS_spec=4
+     integer, parameter :: ATLAS_SED=5
+     integer, parameter :: RAUCH=6
+     integer, parameter :: KOESTER=7     
 
      !index for each photometric system
      integer, parameter :: HST_WFC3 = 1
@@ -31,6 +32,7 @@
      integer, parameter :: LSST = 14
      integer, parameter :: Swift = 15
      integer, parameter :: FSPS  = 16
+     integer, parameter :: DECam = 17
 
      !index for types of zeropoints
      integer, parameter :: zero_point_Vega = 1

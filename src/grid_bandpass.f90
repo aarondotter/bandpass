@@ -18,7 +18,7 @@ program test_bandpass
   !Rv=[3.1d0]
   !Av=[0d0]
 
-  !standard Av,Rv 
+  !standard Av,Rv
   Av = [ 0d0, 0.05d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, 1d0 ]
   Rv = [ 2d0, 3.1d0, 4d0, 5d0 ]
   
@@ -199,12 +199,11 @@ contains
        endif
 
        select case(choice)
-       case(PHOENIX)
-          if(debug) write(*,*) 'PHOENIX'
-          prefix=filename(:index(filename,'.',back=.true.)-1)
-          write(*,*) trim(filename), ' ', trim(prefix)
-          call read_spec(PHOENIX,filename,spectra,num_spectra,ierr)
-
+       case(BB)
+          if(debug) write(*,*) 'blackbody'
+          prefix = filename
+          !write(*,*) 'blackbody spectra with filename: ', trim(prefix)
+          call create_BBs(spectra,num_spectra,ierr)
        case(CK2003)
           if(debug) write(*,*) 'CK2003'
           i0=index(filename,'  Z')
@@ -213,37 +212,16 @@ contains
           write(*,*) trim(filename), ' ', trim(prefix)
           read_on_the_fly = .false.
           call read_ck2003(filename,spectra,num_spectra,ierr)
-
-       case(ATLAS_spec)
-          if(debug) write(*,*) 'ATLAS_spec'
+       case(PHOENIX:KOESTER)
           i0=index(filename,'/',back=.true.)+1
           i1=index(filename,'.',back=.true.)-1
           prefix=filename(i0:i1)
           write(*,*) trim(filename), ' ', trim(prefix)
-          call read_spec(ATLAS_SPEC,filename,spectra,num_spectra,ierr)
-          
-       case(ATLAS_sed)
-          if(debug) write(*,*) 'ATLAS_sed'
-          i0=index(filename,'/',back=.true.)+1
-          i1=index(filename,'.',back=.true.)-1
-          prefix=filename(i0:i1)
-          write(*,*) trim(filename), ' ', trim(prefix)
-          call read_spec(ATLAS_SED,filename,spectra,num_spectra,ierr)
-          
-       case(RAUCH)
-          if(debug) write(*,*) 'Rauch'
-          i0=index(filename,'/',back=.true.)+1
-          i1=index(filename,'.',back=.true.)-1
-          prefix=filename(i0:i1)
-          write(*,*) trim(filename), ' ', trim(prefix)
-          call read_spec(RAUCH,filename,spectra,num_spectra,ierr)
-       
-       case(BB)
-          if(debug) write(*,*) 'blackbody'
-          prefix = filename
-          !write(*,*) 'blackbody spectra with filename: ', trim(prefix)
-          call create_BBs(spectra,num_spectra,ierr)
-
+          call read_spec(choice,filename,spectra,num_spectra,ierr)
+       case default
+          write(*,*) ' grid_bandpass/do_one_set: invalid choice of spectra'
+          ierr=-1
+          return
        end select
 
        if(ierr/=0)then
@@ -255,7 +233,6 @@ contains
 
        nullify(mag)
        allocate(mag(num_filters,num_Av,num_Rv,num_spectra))
-       
 
        !main loop where BCs are calculated
        if(debug) write(*,*) 'main loop'
@@ -264,8 +241,8 @@ contains
        do i=1,num_spectra
 !$omp critical
           if(read_on_the_fly) call load_spec(choice,spectra(i),ierr)
-!$omp end critical
           if(ierr/=0) cycle
+!$omp end critical
           do j=1,num_Rv
              do k=1,num_Av
                 call extinction_for_spectrum(spectra(i),Av(k),Rv(j))
@@ -417,6 +394,11 @@ contains
        filter_list='lists/fsps.list'
        suffix='.FSPS'
        zero_point_type=zero_point_AB
+    case(DECam)
+       write(*,*) ' doing DECam'
+       filter_list='lists/DECam_filter.list'
+       suffix='.DECam'
+       zero_point_type=zero_point_AB
     case default
        filter_list = ''
        suffix = ''
@@ -426,18 +408,19 @@ contains
   end subroutine setup
   
   subroutine write_usage_details
-    write(*,*) ' usage: ./bandpass [M] [N] [list]'
+    write(*,*) ' usage: ./grid_bandpass [M] [N] [list]'
     write(*,*) '                      '
-    write(*,*) '        M = 0 - 3     '
+    write(*,*) '        M = 0 - 7     '
     write(*,*) ' Vega/AB/ST ZPs =  0  '
-    write(*,*) ' PHOENIX        =  1  '
+    write(*,*) ' Blackbody      =  1  '
     write(*,*) ' Castelli&Kurucz=  2  '
-    write(*,*) ' SYNTHE high res=  3  '
-    write(*,*) ' SYNTHE  low res=  4  '
-    write(*,*) ' RAUCH post-AGB =  5  ' 
-    write(*,*) ' Blackbody      =  6  '
+    write(*,*) ' PHOENIX        =  3  '
+    write(*,*) ' SYNTHE high res=  4  '
+    write(*,*) ' SYNTHE  low res=  5  '
+    write(*,*) ' RAUCH post-AGB =  6  ' 
+    write(*,*) ' Koester DA WDs =  7  '
     write(*,*) '                      '
-    write(*,*) '        N = 1 - 14    '
+    write(*,*) '        N = 1 - 16    '
     write(*,*) ' HST_WFC3       =  1  '
     write(*,*) ' HST_ACS_WFC    =  2  '
     write(*,*) ' HST_ACS_HRC    =  3  '
@@ -454,6 +437,7 @@ contains
     write(*,*) ' LSST           = 14  '
     write(*,*) ' Swift          = 15  '
     write(*,*) ' FSPS           = 16  '
+    write(*,*) ' DECam          = 17  '
     write(*,*)
     
   end subroutine write_usage_details

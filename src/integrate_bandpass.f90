@@ -26,6 +26,74 @@
        data_dir = my_data_dir
        data_dir_set = .true.
      end subroutine set_data_dir
+
+     subroutine create_BBs(set,num,ierr)
+       type(spectrum), pointer, intent(out) :: set(:)
+       integer, intent(out) :: num, ierr
+       integer, parameter :: nwav=20000
+       integer :: i
+       integer, parameter :: numT = 106
+       real(dp) :: wave(nwav), dw
+       real(dp) :: Teff(numT)
+
+       ierr = 0
+       num = numT
+       
+       nullify(set)
+       allocate(set(num))
+
+       !set the temperature scale for MIST bolometric correction tables
+       Teff(1) = 1.0d3; Teff(2) = 1.5d3; Teff(3) = 2.0d3; Teff(4)=2.5d3
+       Teff(5) = 2.8d3; Teff(6) = 3.0d3; Teff(7) = 3.2d3; Teff(8)=3.5d3
+       
+       !  3,750 to    13,000
+       do i=9,46
+          Teff(i) = Teff(i-1) + 2.5d2
+       enddo
+
+       ! 14,000 to    50,000
+       do i=47,83
+          Teff(i) = Teff(i-1) + 1.0d3
+       enddo
+  
+       ! 60,000 to   200,000
+       do i=84,98
+          Teff(i) = Teff(i-1) + 1.0d4
+       enddo
+
+       !200,000 to 1,000,000
+       do i=99,numT
+          Teff(i) = Teff(i-1) + 1.0d5
+       enddo
+  
+       if(debug) then
+          do i=1,numT
+             write(*,*) i, Teff(i)
+          enddo
+       endif
+
+       !set the wavelength scale
+       wave(1) = 1d-1
+       wave(nwav) = 1d10
+       dw = log(wave(nwav)/wave(1))/real(nwav-1,kind=dp)
+       do i=2,nwav-1
+          wave(i)=exp(log(wave(i-1))+dw)
+       enddo
+
+       set(:)% logg = 5d0
+
+       do i=1,num
+          set(i)% Teff = Teff(i)
+          allocate(set(i)% wave(nwav), set(i)% flux(nwav), set(i)% extinction(nwav))
+          set(i)% npts = nwav
+          set(i)% wave = wave
+          set(i)% feh = 0d0
+          set(i)% extinction = 1d0
+          set(i)% Fbol = sigma * set(i)% Teff * set(i)% Teff * set(i)% Teff * set(i)% Teff
+          set(i)% flux = BBflux(wave,set(i)% Teff)
+       enddo
+
+     end subroutine create_BBs
      
      subroutine write_bin_file(s, binfile,ierr)
        type(spectrum), intent(in) :: s
@@ -43,6 +111,14 @@
        close(io)
        write(0,*) '   wrote binary file ' , trim(binfile)
      end subroutine write_bin_file
+
+     subroutine read_bin_file(io,s)
+       integer, intent(in) :: io
+       type(spectrum), intent(out) :: s
+       read(io) s% filename, s% npts, s% feh, s% Teff, s% logg, s% R, s% M, s% Fbol
+       allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
+       read(io) s% wave, s% flux
+     end subroutine read_bin_file
      
      subroutine read_vega(vega,AB,ST,ierr)
        type(spectrum), intent(inout) :: vega, AB, ST
@@ -127,74 +203,6 @@
        deallocate(line)
      end subroutine read_filters
 
-     subroutine create_BBs(set,num,ierr)
-       type(spectrum), pointer, intent(out) :: set(:)
-       integer, intent(out) :: num, ierr
-       integer, parameter :: nwav=20000
-       integer :: i
-       integer, parameter :: numT = 106
-       real(dp) :: wave(nwav), dw
-       real(dp) :: Teff(numT)
-
-       ierr = 0
-       num = numT
-       
-       nullify(set)
-       allocate(set(num))
-
-       !set the temperature scale for MIST bolometric correction tables
-       Teff(1) = 1.0d3; Teff(2) = 1.5d3; Teff(3) = 2.0d3; Teff(4)=2.5d3
-       Teff(5) = 2.8d3; Teff(6) = 3.0d3; Teff(7) = 3.2d3; Teff(8)=3.5d3
-       
-       !  3,750 to    13,000
-       do i=9,46
-          Teff(i) = Teff(i-1) + 2.5d2
-       enddo
-
-       ! 14,000 to    50,000
-       do i=47,83
-          Teff(i) = Teff(i-1) + 1.0d3
-       enddo
-  
-       ! 60,000 to   200,000
-       do i=84,98
-          Teff(i) = Teff(i-1) + 1.0d4
-       enddo
-
-       !200,000 to 1,000,000
-       do i=99,numT
-          Teff(i) = Teff(i-1) + 1.0d5
-       enddo
-  
-       if(debug) then
-          do i=1,numT
-             write(*,*) i, Teff(i)
-          enddo
-       endif
-
-       !set the wavelength scale
-       wave(1) = 1d-1
-       wave(nwav) = 1d10
-       dw = log(wave(nwav)/wave(1))/real(nwav-1,kind=dp)
-       do i=2,nwav-1
-          wave(i)=exp(log(wave(i-1))+dw)
-       enddo
-
-       set(:)% logg = 5d0
-
-       do i=1,num
-          set(i)% Teff = Teff(i)
-          allocate(set(i)% wave(nwav), set(i)% flux(nwav), set(i)% extinction(nwav))
-          set(i)% npts = nwav
-          set(i)% wave = wave
-          set(i)% feh = 0d0
-          set(i)% extinction = 1d0
-          set(i)% Fbol = sigma * set(i)% Teff * set(i)% Teff * set(i)% Teff * set(i)% Teff
-          set(i)% flux = BBflux(wave,set(i)% Teff)
-       enddo
-
-     end subroutine create_BBs
-
      subroutine read_CK2003(file,set,num,ierr)
        !CK2003 flux in ergs/cm**2/s/hz/ster
        character(len=256), intent(in) :: file
@@ -267,6 +275,25 @@
        close(1)
      end subroutine read_spec     
 
+     subroutine load_spec(choice,s,ierr)
+       integer, intent(in) :: choice
+       type(spectrum), intent(inout) :: s
+       integer, intent(out) :: ierr
+       ierr=0
+       select case(choice)
+       case(PHOENIX) 
+          call load_phoenix_spec(s,ierr)
+       case(ATLAS_spec)
+          call load_ATLAS_spec(s,ierr)
+       case(ATLAS_SED)
+          call load_ATLAS_sed(s,ierr)
+       case(RAUCH)
+          call load_rauch_spec(s,ierr)
+       case(KOESTER)
+          call load_koester_spec(s,ierr)
+       end select
+     end subroutine load_spec
+
      subroutine load_ATLAS_spec(s,ierr)
        type(spectrum), intent(inout) :: s
        integer, intent(out) :: ierr
@@ -285,7 +312,7 @@
              return
           endif
           s% filename = s% filename
-          call read_teff_logg_from_spec_file(s)
+          call teff_logg_from_spec_file(s)
           s% feh = 0d0
           s% npts = nwav
           allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
@@ -299,16 +326,13 @@
           s% Fbol = sigma * s% Teff**4
           call write_bin_file(s, binfile,ierr)
        else
-          read(2) s% filename, s% npts, s% feh, s% Teff, &
-               s% logg, s% R, s% M, s% Fbol
-          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
-          read(2) s% wave, s% flux
+          call read_bin_file(2,s)
        endif
        close(2)
        if(do_check_total_flux) call check_total_flux(s)
      end subroutine load_ATLAS_spec
 
-     subroutine read_teff_logg_from_spec_file(s)
+     subroutine teff_logg_from_spec_file(s)
        type(spectrum), intent(inout) :: s
        integer :: tloc, gloc, teff
        character(len=4) :: tchar, gchar
@@ -319,7 +343,7 @@
        read(gchar,'(f4.2)') s% logg
        read(tchar,'(i4)') teff
        s% Teff = dble(teff)
-     end subroutine read_teff_logg_from_spec_file
+     end subroutine teff_logg_from_spec_file
 
      subroutine load_ATLAS_sed(s,ierr)
        type(spectrum), intent(inout) :: s
@@ -340,7 +364,7 @@
              return
           endif
           s% filename = s% filename
-          call read_teff_logg_from_sed_file(s)
+          call teff_logg_from_sed_file(s)
           s% feh = 0d0
           s% npts = nwav
           allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
@@ -359,16 +383,13 @@
           s% Fbol = sigma * s% Teff**4
           call write_bin_file(s, binfile,ierr)
        else
-          read(2) s% filename, s% npts, s% feh, s% Teff, &
-               s% logg, s% R, s% M, s% Fbol
-          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
-          read(2) s% wave, s% flux
+          call read_bin_file(2,s)
        endif
        close(2)
        if(do_check_total_flux) call check_total_flux(s)
      end subroutine load_ATLAS_sed
       
-     subroutine read_teff_logg_from_sed_file(s)
+     subroutine teff_logg_from_sed_file(s)
        type(spectrum), intent(inout) :: s
        integer :: tloc, gloc, mloc, aloc, teff
        character(len=4) :: gchar, mchar, achar
@@ -387,24 +408,7 @@
        read(achar,'(f4.2)') s% alpha_Fe
        s% Teff = dble(teff)
        write(*,*) s% Teff, s% logg, s% FeH, s% alpha_Fe
-     end subroutine read_teff_logg_from_sed_file
-     
-     subroutine load_spec(choice,s,ierr)
-       integer, intent(in) :: choice
-       type(spectrum), intent(inout) :: s
-       integer, intent(out) :: ierr
-       ierr=0
-       select case(choice)
-       case(PHOENIX) 
-          call load_phoenix_spec(s,ierr)
-       case(ATLAS_spec)
-          call load_ATLAS_spec(s,ierr)
-       case(ATLAS_SED)
-          call load_ATLAS_sed(s,ierr)
-       case(RAUCH)
-          call load_rauch_spec(s,ierr)
-       end select
-     end subroutine load_spec
+     end subroutine teff_logg_from_sed_file
 
      subroutine load_rauch_spec(s,ierr)
        type(spectrum), intent(inout) :: s
@@ -453,15 +457,74 @@
           call write_bin_file(s, binfile, ierr)
           
        else
-          read(2) s% filename, s% npts, s% feh, s% Teff, &
-               s% logg, s% R, s% M, s% Fbol
-          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
-          read(2) s% wave, s% flux
+          call read_bin_file(2,s)
        endif
        close(2)
        if(do_check_total_flux) call check_total_flux(s)
      end subroutine load_rauch_spec
-      
+
+     subroutine load_koester_spec(s,ierr)
+       type(spectrum), intent(inout) :: s
+       integer, intent(out) :: ierr
+       character(len=256) :: binfile, filename, line
+       integer :: i, lo, hi
+       integer, parameter :: num_extra = 100
+       real(dp) :: wave_extra(num_extra), flux_extra(num_extra), dwave
+       ierr=0
+       filename=trim(s% filename)
+       binfile=trim(filename) // '.bin'
+       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
+       if(ierr/=0) then  !'no binary file; open ascii file and write binfile
+          close(2)
+          open(2,file=trim(filename),iostat=ierr,status='old')
+          if(ierr/=0) then
+             write(*,*) trim( filename)
+             return
+          endif
+          !read the header and get some useful info
+          do i=1,33
+             read(2,'(a)') line
+             !write(*,*) i, line(1:7)
+             if(trim(line(1:7))==  'TEFF') read(line(12:30),*) s% Teff
+             if(trim(line(1:7))== 'LOG_G') read(line(12:30),*) s% logg
+             if(trim(line(1:7))=='NAXIS2') read(line(12:30),*) s% npts
+          enddo
+          s% npts = s% npts + num_extra !fudge to add a blackbody tail beyond 3 microns
+          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
+          !now read wavelength and flux
+          s% flux = 0d0
+          do i=1,s% npts-num_extra
+             read(2,'(f11.3,e13.5)') s% wave(i), s% flux(i)
+          enddo
+          s% flux = WD_flux_conv * s% flux !then convert flux to match sigma*T^4
+          s% FeH = 0d0
+          s% M = 1d0
+          s% R = 1d0
+          s% Fbol = sigma * s% Teff * s% Teff * s% Teff * s% Teff
+
+          !graft on the extra blackbody flux
+          if(num_extra > 0)then
+             wave_extra(1) = s% wave(s% npts - num_extra) + 5d1
+             wave_extra(num_extra) = 1d7
+             dwave = log(wave_extra(num_extra)/wave_extra(1))/real(num_extra-1,kind=dp)
+             do i=2,num_extra-1
+                wave_extra(i) = exp(log(wave_extra(i-1))+dwave)
+             enddo
+             lo=s% npts - num_extra + 1
+             hi=s% npts 
+             flux_extra = BBflux(wave_extra, s% Teff)
+             s% flux(lo:hi) = flux_extra
+             s% wave(lo:hi) = wave_extra
+          endif
+
+          !resume normal operations....
+          call write_bin_file(s, binfile,ierr)
+       else
+          call read_bin_file(2,s)
+       endif
+       close(2)
+       if(do_check_total_flux) call check_total_flux(s)
+     end subroutine load_koester_spec
 
      subroutine load_phoenix_spec(s,ierr)
        type(spectrum), intent(inout) :: s
@@ -489,10 +552,7 @@
           s% Fbol = sigma * s% Teff**4
           call write_bin_file(s, binfile,ierr)
        else
-          read(2) s% filename, s% npts, s% feh, s% Teff, &
-               s% logg, s% R, s% M, s% Fbol
-          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
-          read(2) s% wave, s% flux
+          call read_bin_file(2,s)
        endif
        close(2)
        if(do_check_total_flux) call check_total_flux(s)
