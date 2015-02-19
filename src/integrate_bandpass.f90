@@ -7,7 +7,7 @@
      implicit none
 
      character(len=256) :: data_dir
-     logical :: data_dir_set = .false., read_on_the_fly = .false.
+     logical :: data_dir_set = .false., read_on_the_fly = .true.
      logical, parameter :: debug = .false., do_check_total_flux=.false.
 
      integer :: zero_point_type
@@ -304,7 +304,7 @@
        filename = trim(s% filename)
        binfile=trim(filename)//'.bin'
        open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
-       if(ierr/=0) then  !'no binary file; open ascii file and write binfile
+       if(ierr/=0) then  !no binary file; open ascii file and write binfile
           close(2)
           open(2,file=trim(filename),iostat=ierr,status='old')
           if(ierr/=0) then
@@ -349,8 +349,8 @@
        type(spectrum), intent(inout) :: s
        integer, intent(out) :: ierr
        character(len=256) :: binfile, filename
-       integer, parameter :: nwav=26500
-       !integer, parameter :: nwav=47378
+       !integer, parameter :: nwav=26500
+       integer, parameter :: nwav=47378
        integer :: i
        ierr=0
        filename = trim(s% filename)
@@ -395,18 +395,30 @@
        character(len=4) :: gchar, mchar, achar
        character(len=5) :: tchar
        mloc = index(s% filename,"feh",back=.true.)
-       mchar= s% filename(mloc+3:mloc+6)
+       if(mloc>0) then
+          mchar= s% filename(mloc+3:mloc+6)
+          read(mchar,'(f4.2)') s% FeH
+       else
+          s% FeH = 0
+       endif
+       
        aloc = index(s% filename,"afe",back=.true.)
-       achar = s% filename(aloc+3:aloc+6)
+       if(aloc>0)then
+          achar = s% filename(aloc+3:aloc+6)
+          read(achar,'(f4.2)') s% alpha_Fe
+       else
+          s% alpha_Fe = 0
+       endif
+
        gloc = index(s% filename,"g",back=.true.)
        gchar= s% filename(gloc+1:gloc+4)
+       read(gchar,'(f4.2)') s% logg
+
        tloc = index(s% filename,"_t",back=.true.)
        tchar = s% filename(tloc+2:gloc-1)
-       read(gchar,'(f4.2)') s% logg
        read(tchar,'(i5)') teff
-       read(mchar,'(f4.2)') s% FeH
-       read(achar,'(f4.2)') s% alpha_Fe
        s% Teff = dble(teff)
+
        write(*,*) s% Teff, s% logg, s% FeH, s% alpha_Fe
      end subroutine teff_logg_from_sed_file
 

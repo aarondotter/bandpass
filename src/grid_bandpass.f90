@@ -7,20 +7,21 @@ program test_bandpass
   character(len=256) :: filter_list, my_data_dir, spectra_list
   character(len=16) :: suffix, arg
   integer :: count, choice, phot_system, ierr
+  logical :: new_table_style = .true.
   !logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
-  !integer, parameter:: num_Av = 1, num_Rv = 1
-  integer, parameter :: num_Av=8, num_Rv=4
+  integer, parameter:: num_Av = 1, num_Rv = 1
+  !integer, parameter :: num_Av=8, num_Rv=4
   real(dp) :: Av(num_Av), Rv(num_Rv)
   
   ierr = 0
   
   !test - no reddening
-  !Rv=[3.1d0]
-  !Av=[0d0]
+  Rv=[3.1d0]
+  Av=[0d0]
 
   !standard Av,Rv
-  Av = [ 0d0, 0.05d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, 1d0 ]
-  Rv = [ 2d0, 3.1d0, 4d0, 5d0 ]
+  !Av = [ 0d0, 0.05d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, 1d0 ]
+  !Rv = [ 2d0, 3.1d0, 4d0, 5d0 ]
   
   count = command_argument_count()
   
@@ -29,15 +30,20 @@ program test_bandpass
   
   call set_data_dir(my_data_dir)
       
-  if(count>2)then
+  if(count>=2)then
      !process command line arguments
      call get_command_argument(1,arg)
      read(arg,*) choice
      call get_command_argument(2,arg)
      read(arg,*) phot_system
      
-     call get_command_argument(3,spectra_list)
+     if(choice>0) call get_command_argument(3,spectra_list)
      
+     if(choice>0.and.count==4)then
+        call get_command_argument(4,arg)
+        if(trim(arg)=='old' .or. trim(arg)=='OLD') new_table_style=.false.
+     endif
+
      call setup(phot_system)
      
      if(choice==VEGAZP)then
@@ -124,7 +130,7 @@ contains
     real(dp), allocatable :: ZP(:)
     real(dp), pointer :: mag(:,:,:,:)
     logical :: AOK
-    
+
     ierr=0
 
     if(.not.data_dir_set)then
@@ -177,7 +183,7 @@ contains
           write(*,*) 'failed in integrate_bandpass'
           return
        endif
-          
+
        if(debug) write(*,'(i3,3x,a30,2f20.10)') i, filter(i)% filename, ZP(i), -2.5d0*log10(ZP(i))
     enddo
 
@@ -241,14 +247,14 @@ contains
        do i=1,num_spectra
 !$omp critical
           if(read_on_the_fly) call load_spec(choice,spectra(i),ierr)
-          if(ierr/=0) cycle
 !$omp end critical
+          if(ierr/=0) cycle
           do j=1,num_Rv
              do k=1,num_Av
                 call extinction_for_spectrum(spectra(i),Av(k),Rv(j))
                 do l=1,num_filters
                    tmp_mag = solar_const*integrate_bandpass(spectra(i),filter(l),ierr) &
-                             / (spectra(i)% Fbol * ZP(l))
+                        / (spectra(i)% Fbol * ZP(l))
                    mag(l,k,j,i) = Msolbol + 2.5d0*log10(tmp_mag)
                    if(ierr/=0) then
                       write(0,*) 'failed in integrate_bandpass'
@@ -264,12 +270,12 @@ contains
 !$omp end critical
        enddo
 !$omp end parallel do
-       
+
        if(.not.AOK) then
           write(0,*) "A complete flop and the worst thing I've ever done."
           return
        endif
-       
+
        outfile=trim(prefix)//trim(suffix)
        write(0,*) '   output to ', trim(outfile)
        open(1,file=trim(outfile),iostat=ierr)
@@ -277,36 +283,48 @@ contains
           write(*,*) 'failed to write output file'
           return
        endif
-       write(1,'(a1,1x,4a8)') '#', 'filters', 'spectra', 'num Av', 'num Rv'
-       write(1,'(a1,1x,4i8)') '#', num_filters, num_spectra, num_Av, num_Rv
-       write(1,'(a1)') '#'
-       do j=1,num_Rv
-          do k=1,num_Av
-             write(1,2) '#', (i,i=1,num_filters+5)
-             write(1,3) '#', 'Teff ', 'logg ', '[Fe/H]', '  Av ', '  Rv ', filter_name(1:num_filters)
-             do i=1,num_spectra
-                write(1,4) spectra(i)% Teff, spectra(i)% logg, spectra(i)% FeH, Av(k), Rv(j), mag(:,k,j,i)
+       if(new_table_style)then
+          write(1,'(a1,1x,4a8)') '#', 'filters', 'spectra', 'num Av', 'num Rv'
+          write(1,'(a1,1x,4i8)') '#', num_filters, num_spectra, num_Av, num_Rv
+          write(1,'(a1)') '#'
+          do j=1,num_Rv
+             do k=1,num_Av
+                write(1,2) '#', (i,i=1,num_filters+5)
+                write(1,3) '#', 'Teff ', 'logg ', '[Fe/H]', '  Av ', '  Rv ', filter_name(1:num_filters)
+                do i=1,num_spectra
+                   write(1,4) spectra(i)% Teff, spectra(i)% logg, spectra(i)% FeH, Av(k), Rv(j), mag(:,k,j,i)
+                enddo
+                if(k<num_Av.and.j<num_Rv)then
+                   write(1,*)
+                   write(1,*)
+                endif
              enddo
-             if(k<num_Av.and.j<num_Rv)then
-                write(1,*)
-                write(1,*)
-             endif
           enddo
-       enddo
+       else !do the old table style, only one table per file and one value each of Av, Rv
+          write(1,5) '#', (i,i=1,num_filters+3)
+          write(1,6) '#', 'Teff ', 'logg ', '[Fe/H]', filter_name(1:num_filters)
+          do i=1,num_spectra
+             write(1,7) spectra(i)% Teff, spectra(i)% logg, spectra(i)% FeH, mag(:,1,1,i)
+          enddo
+       endif
        close(1)
 
        deallocate(mag,spectra)
-       
+
        if(choice==BB) exit
     enddo
 
     if(choice/=BB) close(99)
-      
+
     deallocate(filter,ZP,filter_name)
 
 2   format(a1,i7, i5, 3i6, 99(5x,i2,5x))
 3   format(a1,a7, a5, 3a6 ,99a12)
 4   format(f8.0,f5.1,3f6.2,99f12.6)
+
+5   format(a1,i7,i5,i6,99(5x,i2,5x))
+6   format(a1,a7,a5,a6,99a12)
+7   format(f8.0,f5.1,f6.2,99f12.6)
 
   end subroutine do_one_set
 

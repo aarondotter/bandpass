@@ -1,4 +1,4 @@
-FC=gfortran
+FC=/usr/bin/gfortran
 FLAGS= -fopenmp -O2 -ffree-form
 WARN= -Wall -pedantic
 DBG= -g -fcheck=all -fbacktrace

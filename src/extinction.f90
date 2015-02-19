@@ -18,7 +18,7 @@
 
       contains
 
-      !elemental: can be called on a scalar or an array in the same way
+      !can be called on a scalar or an array in the same way
       elemental function Al_div_Av_CCM(lambda,Rv) result(Alam)
          real(dp), intent(in) :: lambda !in angstrom
          real(dp), intent(in) :: Rv ! Av/E(B-V)
