@@ -10,7 +10,7 @@ program test_bandpass
   logical :: new_table_style = .true.
   !logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
   integer, parameter:: num_Av = 1, num_Rv = 1
-  !integer, parameter :: num_Av=8, num_Rv=4
+  !integer, parameter :: num_Av=10, num_Rv=1
   real(dp) :: Av(num_Av), Rv(num_Rv)
   
   ierr = 0
@@ -20,8 +20,8 @@ program test_bandpass
   Av=[0d0]
 
   !standard Av,Rv
-  !Av = [ 0d0, 0.05d0, 0.1d0, 0.2d0, 0.4d0, 0.6d0, 0.8d0, 1d0 ]
-  !Rv = [ 2d0, 3.1d0, 4d0, 5d0 ]
+  !Av = [ 0d0, 0.05d0, 0.1d0, 0.15d0, 0.2d0, 0.3d0, 0.4d0, 0.6d0, 0.8d0, 1d0 ]
+  !Rv = [ 3.1d0 ]
   
   count = command_argument_count()
   
@@ -253,9 +253,9 @@ contains
              do k=1,num_Av
                 call extinction_for_spectrum(spectra(i),Av(k),Rv(j))
                 do l=1,num_filters
-                   tmp_mag = solar_const*integrate_bandpass(spectra(i),filter(l),ierr) &
+                   tmp_mag = flux_ref_const*integrate_bandpass(spectra(i),filter(l),ierr) &
                         / (spectra(i)% Fbol * ZP(l))
-                   mag(l,k,j,i) = Msolbol + 2.5d0*log10(tmp_mag)
+                   mag(l,k,j,i) = Mbol_ref + 2.5d0*log10(tmp_mag)
                    if(ierr/=0) then
                       write(0,*) 'failed in integrate_bandpass'
                       write(0,*) ' file = ', trim(spectra(i)% filename)

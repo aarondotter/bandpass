@@ -45,10 +45,11 @@
     !character(len=256), parameter :: vega_filename = 'Vega/alpha_lyr_stis_004.dat'
     
     ! all constants' units are cgs
-    real(dp), parameter :: Msolbol = 4.75d0, Lsun = 3.8418d33, Msun=1.9891d33
+    real(dp), parameter :: Lsun = 3.8418d33, Msun=1.9891d33
     real(dp), parameter :: G = 6.67384d-8 ! 2010 CODATA
     real(dp), parameter :: sigma = 5.670373d-5 ! 2010 CODATA
     real(dp), parameter :: clight=2.99792458d18      ! speed of light in Angstrom/s
+    real(dp), parameter :: kB=1.3806488d-16 !erg/K, 2010 CODATA
     real(dp), parameter :: planck_h = 6.62606957d-27 ! Planck's constant (erg s)
     real(dp), parameter :: pc = 3.0856770322224d18, pc10=1d1*pc ! 10 parsec
     real(dp), parameter :: pi = 3.141592653589793d0, pi4=4d0*pi
@@ -57,7 +58,13 @@
     real(dp), parameter :: WD_flux_conv = pi/AAcm !Rauch/Koester unit conversion
     real(dp), parameter :: ST_flux_const = 3.631d-09 ! erg/s/cm^2/AA
     real(dp), parameter :: AB_flux_const = 3.631d-20 ! erg/s/cm^2/Hz
-    real(dp), parameter :: solar_const = Lsun / (pi4 * pc10 * pc10) ! for BC
-    real(dp), parameter :: kB=1.3806488d-16 !erg/K, 2010 CODATA
+    !from G. Torres 2015, IAU resolution to define flux,Mbol standards
+    real(dp), parameter :: Mbol_ref = 0d0
+    real(dp), parameter :: flux_ref = 3.012d35 !erg/s, note that this implies Lsun=3.828d33
+    !!the old version, with no reference, difference between these two is 0.0142 mag
+    !!real(dp), parameter :: Mbol_ref = 4.75d0
+    !!real(dp), parameter :: flux_ref=3.8418d33 !Lsun
+    real(dp), parameter :: flux_ref_const = flux_ref / (pi4 * pc10 * pc10) ! for BC
+
 
   end module const

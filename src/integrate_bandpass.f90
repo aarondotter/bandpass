@@ -7,7 +7,7 @@
      implicit none
 
      character(len=256) :: data_dir
-     logical :: data_dir_set = .false., read_on_the_fly = .true.
+     logical :: data_dir_set = .false., read_on_the_fly = .false.
      logical, parameter :: debug = .false., do_check_total_flux=.false.
 
      integer :: zero_point_type
