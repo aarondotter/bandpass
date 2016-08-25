@@ -1,4 +1,4 @@
-program test_bandpass
+program grid_bandpass
 
   use const
   use bandpass
@@ -6,21 +6,23 @@ program test_bandpass
   implicit none
   character(len=256) :: filter_list, my_data_dir, spectra_list
   character(len=16) :: suffix, arg
+  character(len=64) :: photometric_system_string=''
   integer :: count, choice, phot_system, ierr
   logical :: new_table_style = .true.
   !logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
   integer, parameter:: num_Av = 1, num_Rv = 1
-  !integer, parameter :: num_Av=10, num_Rv=1
+  !integer, parameter :: num_Av=13, num_Rv=1
+  !integer, parameter :: num_Av = 4, num_Rv = 1
   real(dp) :: Av(num_Av), Rv(num_Rv)
   
   ierr = 0
   
   !test - no reddening
   Rv=[3.1d0]
-  Av=[0d0]
+  Av=[0d0] !, 0.12d0, 0.15d0, 0.17d0]
 
   !standard Av,Rv
-  !Av = [ 0d0, 0.05d0, 0.1d0, 0.15d0, 0.2d0, 0.3d0, 0.4d0, 0.6d0, 0.8d0, 1d0 ]
+  !Av = [ 0d0, 0.05d0, 0.1d0, 0.15d0, 0.2d0, 0.3d0, 0.4d0, 0.6d0, 0.8d0, 1d0, 2d0, 4d0, 6d0 ]
   !Rv = [ 3.1d0 ]
   
   count = command_argument_count()
@@ -60,12 +62,12 @@ contains
   subroutine do_vega(filter_list,ierr)
     character(len=256), intent(in) :: filter_list
     integer, intent(out) :: ierr
-    character(len=13), pointer :: filter_name(:)
+    character(len=20), pointer :: filter_name(:)
     type(spectrum) :: vega, AB, ST
     type(spectrum), allocatable :: filter_set(:)
     integer :: i, i0, i1, num_filters
     real(dp), allocatable :: Vega_ZP(:), ST_ZP(:), AB_ZP(:)
-    
+    character(len=4) :: ZP_string
     ierr=0
     
     if(.not.data_dir_set)then
@@ -89,23 +91,37 @@ contains
     endif
     
     if(debug) write(*,*) '      read filters . . .'
-    call read_filters(filter_list,filter_set,num_filters,ierr)
+    call read_filters(filter_list,filter_set,zero_point_type,num_filters,ierr)
     if(ierr/=0) stop 'failed in read_filters'
     
     allocate(Vega_ZP(num_filters),filter_name(num_Filters),ST_ZP(num_filters),AB_ZP(num_filters))
 
     if(debug) write(*,*) '     derive zeropoints . . .'
-    write(*,'(a3,3x,a13,99a20)') 'i', 'filter', 'Vega ZP', 'ST ZP', 'AB ZP', 'mag(Vega/ST)', &
+    write(*,'(a3,3x,9a20)') 'i', 'filter','type', 'Vega ZP', 'ST ZP', 'AB ZP', 'mag(Vega/ST)', &
          'mag(Vega/AB)'
-    do i=1,num_Filters !'
+    do i=1,num_Filters
        i0 = index(filter_set(i)% filename, '/', .true.)+1
        i1 = index(filter_set(i)% filename, '.', .true.)-1
+
+       if(i1<0) i1=len_trim(filter_set(i)% filename)
        filter_name(i) = filter_set(i)% filename(i0:i1)
+
+       ZP_string = '    '
+       if(zero_point_type(i)==zero_point_Vega)then
+          ZP_string = Vega_String
+       elseif(zero_point_type(i)==zero_point_AB)then
+          ZP_string = AB_string
+       elseif(zero_point_type(i)==zero_point_ST)then
+          ZP_string = ST_string
+       else
+          ZP_string = 'null'
+       endif
+
        Vega_ZP(i) = integrate_bandpass(vega,filter_set(i),ierr)
        ST_ZP(i) = integrate_bandpass(ST,filter_set(i),ierr)
        AB_ZP(i) = integrate_bandpass(AB,filter_set(i),ierr)
        if(ierr/=0) stop 'failed in integrate_bandpass'
-       write(*,'(i3,3x,a13,99f20.10)') i, filter_name(i), &
+       write(*,'(i3,3x,2a20,99f20.10)') i, trim(filter_name(i)), ZP_string, &
             Vega_ZP(i), ST_ZP(i), AB_ZP(i), &
             -2.5d0*log10(Vega_ZP(i)/ST_ZP(i)), &
             -2.5d0*log10(Vega_ZP(i)/AB_ZP(i))
@@ -121,7 +137,7 @@ contains
     character(len=16), intent(in) :: suffix
     integer, intent(out) :: ierr
     character(len=256) :: outfile, filename, prefix
-    character(len=10), allocatable :: filter_name(:)
+    character(len=20), allocatable :: filter_name(:)
     type(spectrum) :: vega, AB, ST
     type(spectrum), allocatable :: filter(:)
     type(spectrum), pointer :: spectra(:)
@@ -156,7 +172,7 @@ contains
     endif
 
     if(debug) write(*,*) '      read filters . . .'
-    call read_filters(filter_list,filter,num_filters,ierr)
+    call read_filters(filter_list,filter,zero_point_type,num_filters,ierr)
     if(ierr/=0) then
        write(*,*) 'failed in read_filters'
        return
@@ -168,8 +184,10 @@ contains
     do i=1,num_Filters
        i0 = index(filter(i)% filename, '/', .true.)+1
        i1 = index(filter(i)% filename, '.', .true.)-1
+       if(i1<0) i1=len_trim(filter(i)% filename)
        filter_name(i) = filter(i)% filename(i0:i1)
-       select case(zero_point_type)
+       filter_name(i) = adjustr(filter_name(i))
+       select case(zero_point_type(i))
        case(zero_point_Vega)
           ZP(i) = integrate_bandpass(vega,filter(i),ierr)
        case(zero_point_ST)
@@ -184,7 +202,7 @@ contains
           return
        endif
 
-       if(debug) write(*,'(i3,3x,a30,2f20.10)') i, filter(i)% filename, ZP(i), -2.5d0*log10(ZP(i))
+       if(debug) write(*,'(i3,3x,a20,2f20.10)') i, filter(i)% filename, ZP(i), -2.5d0*log10(ZP(i))
     enddo
 
     if(choice==BB) then
@@ -218,7 +236,7 @@ contains
           write(*,*) trim(filename), ' ', trim(prefix)
           read_on_the_fly = .false.
           call read_ck2003(filename,spectra,num_spectra,ierr)
-       case(PHOENIX:KOESTER)
+       case(PHOENIX:PHOENIX_ACES)
           i0=index(filename,'/',back=.true.)+1
           i1=index(filename,'.',back=.true.)-1
           prefix=filename(i0:i1)
@@ -284,6 +302,7 @@ contains
           return
        endif
        if(new_table_style)then
+          write(1,1) '#', photometric_system_string
           write(1,'(a1,1x,4a8)') '#', 'filters', 'spectra', 'num Av', 'num Rv'
           write(1,'(a1,1x,4i8)') '#', num_filters, num_spectra, num_Av, num_Rv
           write(1,'(a1)') '#'
@@ -318,13 +337,15 @@ contains
 
     deallocate(filter,ZP,filter_name)
 
-2   format(a1,i7, i5, 3i6, 99(5x,i2,5x))
-3   format(a1,a7, a5, 3a6 ,99a12)
-4   format(f8.0,f5.1,3f6.2,99f12.6)
+1   format(a1,1x,a64)
 
-5   format(a1,i7,i5,i6,99(5x,i2,5x))
-6   format(a1,a7,a5,a6,99a12)
-7   format(f8.0,f5.1,f6.2,99f12.6)
+2   format(a1,i7, i5, 3i6, 99(17x,i3))
+3   format(a1,a7, a5, 3a6 ,99a20)
+4   format(f8.0,f5.1,3f6.2,99f20.6)
+
+5   format(a1,i7,i5,i6,99(17x,i3))
+6   format(a1,a7,a5,a6,99a20)
+7   format(f8.0,f5.1,f6.2,99f20.6)
 
   end subroutine do_one_set
 
@@ -336,91 +357,146 @@ contains
        write(*,*) ' doing HST/WFC3'
        filter_list = 'lists/wfc3_filter.list'
        suffix = '.HST_WFC3'
-       zero_point_type = zero_point_Vega
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'HST/WFC3/UVIS + IR (Vega)'
     case(HST_ACS_WFC)
        write(*,*) ' doing HST/ACS-WFC'
        filter_list = 'lists/acs_wfc_filter.list'
        suffix = '.HST_ACSWF'
-       zero_point_type = zero_point_Vega
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'HST/ACS/WFC (Vega)'
     case(HST_ACS_HRC)
        write(*,*) ' doing HST/ACS-HRC'
        filter_list = 'lists/acs_hrc_filter.list'
        suffix = '.HST_ACSHR'
-       zero_point_type = zero_point_Vega
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'HST/ACS/HRC (Vega)'
     case(HST_WFPC2)
        write(*,*) ' doing HST/WFPC2'
        filter_list = 'lists/wfpc2_filter.list'
        suffix = '.HST_WFPC2'
-       zero_point_type = zero_point_Vega
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'HST/WFPC2 (Vega)'
     case(SDSS)
        write(*,*) ' doing SDSS'
        filter_list = 'lists/SDSS_filter.list'
        suffix = '.SDSSugriz'
-       zero_point_type = zero_point_AB
+       zero_point_default = zero_point_AB
+       photometric_system_string = 'SDSS (AB)'
     case(CFHT)
        write(*,*) ' doing CFHT'
        filter_list = 'lists/CFHT_filter.list'
        suffix = '.CFHTugriz'
-       zero_point_type = zero_point_AB
+       zero_point_default = zero_point_AB
+       photometric_system_string = 'CFHT MegaCam (AB)'
     case(UBVRIJHKsKp)
        write(*,*) ' doing UBVRI+2MASS+Kepler'
-       filter_list = 'lists/UBVRIJHKsKpD51_filter.list'
-       suffix = '.UBVRIJHKsKp'
-       zero_point_type = zero_point_Vega
+       filter_list = 'lists/UBVRIplus_filter.list'
+       suffix = '.UBVRIplus'
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'UBV(RI)c, 2MASS, Kepler, Hipparcos, Gaia (Vega)'
     case(WashDDOuvby)
        write(*,*) ' doing Washington+DDO51+Stroemgren'
        filter_list = 'lists/WashDDOuvby_filter.list'
        suffix = '.WashDDOuvby'
-       zero_point_type = zero_point_Vega
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'Washington + Stroemgren + KPNO DDO51 (Vega)'
     case(UKIDSS)
        write(*,*) ' doing UKIDSS'
        filter_list = 'lists/UKIDSS_filter.list'
        suffix = '.UKIDSS'
-       zero_point_type = zero_point_Vega
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'UKIDSS (Vega)'
     case(WISE)
        write(*,*) ' doing WISE'
        filter_list = 'lists/WISE_filter.list'
        suffix = '.WISE'
-       zero_point_type = zero_point_Vega
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'WISE (Vega)'
     case(PanSTARRS)
        write(*,*) ' doing PanSTARRS'
        filter_list = 'lists/PanSTARRS1_filter.list'
        suffix = '.PanSTARRS'
-       zero_point_type = zero_point_AB
+       zero_point_default = zero_point_AB
+       photometric_system_string = 'PanSTARRS (AB)'
     case(SPITZER)
        write(*,*) ' doing SPITZER'
        filter_list = 'lists/SPITZER_filter.list'
        suffix = '.SPITZER'
-       zero_point_type = zero_point_Vega
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'SPITZER IRAC (Vega)'
     case(SkyMapper)
        write(*,*) ' doing SkyMapper'
        filter_list = 'lists/SkyMapper_filter.list'
        suffix='.SkyMapper'
-       zero_point_type = zero_point_AB
+       zero_point_default = zero_point_AB
+       photometric_system_string = 'SkyMapper (AB)'
     case(LSST)
        write(*,*) ' doing LSST'
        filter_list = 'lists/LSST_filter.list'
        suffix='.LSST'
-       zero_point_type = zero_point_AB
+       zero_point_default = zero_point_AB
+       photometric_system_string = 'LSST (AB)'
     case(Swift)
        write(*,*) ' doing Swift UVOT'
        filter_list = 'lists/swift.list'
        suffix='.Swift'
-       zero_point_type = zero_point_AB
+       zero_point_default = zero_point_AB
+       photometric_system_string = 'Swift (AB)'
     case(FSPS)
        write(*,*) ' doing FSPS'
        filter_list='lists/fsps.list'
        suffix='.FSPS'
        zero_point_type=zero_point_AB
+       photometric_system_string = 'FSPS superset (AB)'
     case(DECam)
        write(*,*) ' doing DECam'
        filter_list='lists/DECam_filter.list'
        suffix='.DECam'
        zero_point_type=zero_point_AB
+       photometric_system_string = 'DECam (AB)'
+    case(GALEX)
+       write(*,*) ' doing GALEX'
+       filter_list='lists/GALEX_filter.list'
+       suffix='.GALEX'
+       zero_point_type=zero_point_AB
+       photometric_system_string = 'GALEX (AB)'
+    case(JHKLM)
+       write(*,*) ' doing Bessell & Brett JHKLLpM'
+       filter_list = 'lists/JHKLM_filter.list'
+       suffix = '.JHKLM'
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'Bessell & Brett JHKLLpM (Vega)'
+    case(JWST)
+       write(*,*) ' doing JWST NIRCAM '
+       filter_list = 'lists/JWST_filter.list'
+       suffix = '.JWST'
+       zero_point_default = zero_point_Vega
+       photometric_system_string = 'JWST NIRCAM (Vega)'
+    case(WFIRST)
+       write(*,*) ' doing WFIRST '
+       filter_list = 'lists/WFIRST_filters.list'
+       suffix = '.WFIRST'
+       zero_point_default = zero_point_AB
+       photometric_system_string = 'WFIRST hypothetical (AB)'
+    case(RoboAO)
+       write(*,*) ' doing Robo-AO '
+       filter_list = 'lists/RoboAO_filter.list'
+       suffix='.RoboAO'
+       zero_point_default = zero_point_AB
+       photometric_system_string = 'Robo-AO (AB)'
+    case(Phill)
+       write(*,*) ' doing Phill filters'
+       filter_list = 'lists/phill_filter.list'
+       suffix='.phill'
+       zero_point_default=zero_point_vega
+       photometric_system_string = ' potpourri (Vega & AB)'
     case default
+       write(*,*) ' doing nothing!'
        filter_list = ''
        suffix = ''
-       zero_point_type = 0
+       zero_point_default = 0
+       photometric_system_string = 'null'
     end select
     
   end subroutine setup
@@ -437,6 +513,7 @@ contains
     write(*,*) ' SYNTHE  low res=  5  '
     write(*,*) ' RAUCH post-AGB =  6  ' 
     write(*,*) ' Koester DA WDs =  7  '
+    write(*,*) ' PHOENIX ACES   =  8  '
     write(*,*) '                      '
     write(*,*) '        N = 1 - 16    '
     write(*,*) ' HST_WFC3       =  1  '
@@ -445,7 +522,7 @@ contains
     write(*,*) ' HST_WFPC2      =  4  '
     write(*,*) ' SDSS           =  5  '
     write(*,*) ' CFHT/MegaCam   =  6  '
-    write(*,*) ' UBVRIJHKsKp    =  7  '
+    write(*,*) ' UBVRI & friends=  7  '
     write(*,*) ' WashDDOuvby    =  8  '
     write(*,*) ' UKIDSS         =  9  '
     write(*,*) ' WISE           = 10  '
@@ -456,8 +533,14 @@ contains
     write(*,*) ' Swift          = 15  '
     write(*,*) ' FSPS           = 16  '
     write(*,*) ' DECam          = 17  '
+    write(*,*) ' GALEX          = 18  '
+    write(*,*) ' Bessell JHKLM  = 19  '
+    write(*,*) ' JWST NIRCAM    = 20  '
+    write(*,*) ' WFIRST         = 21  '
+    write(*,*) ' Robo-AO        = 22  '
+    write(*,*) ' Phill          = 23  '
     write(*,*)
-    
+
   end subroutine write_usage_details
   
-end program test_bandpass
+end program grid_bandpass

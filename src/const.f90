@@ -14,6 +14,7 @@
      integer, parameter :: ATLAS_SED=5
      integer, parameter :: RAUCH=6
      integer, parameter :: KOESTER=7     
+     integer, parameter :: PHOENIX_ACES=8
 
      !index for each photometric system
      integer, parameter :: HST_WFC3 = 1
@@ -33,11 +34,21 @@
      integer, parameter :: Swift = 15
      integer, parameter :: FSPS  = 16
      integer, parameter :: DECam = 17
+     integer, parameter :: GALEX = 18
+     integer, parameter :: JHKLM = 19
+     integer, parameter :: JWST  = 20
+     integer, parameter :: WFIRST = 21
+     integer, parameter :: RoboAO = 22
+     integer, parameter :: Phill = 23
 
      !index for types of zeropoints
-     integer, parameter :: zero_point_Vega = 1
-     integer, parameter :: zero_point_AB = 2
-     integer, parameter :: zero_point_ST = 3
+     integer, parameter :: zero_point_unknown = 0
+     integer, parameter :: zero_point_Vega    = 1   
+     integer, parameter :: zero_point_AB      = 2
+     integer, parameter :: zero_point_ST      = 3
+     character(len=2), parameter :: AB_string = 'AB'
+     character(len=4), parameter :: Vega_string = 'Vega'
+     character(len=2), parameter :: ST_string = 'ST'
 
     ! important files: for Vega, 005 is newer than 004
     ! also note that Vega/alpha_lyr*.dat contain Vega flux in 1st column, AB in 2nd, ST in 3rd

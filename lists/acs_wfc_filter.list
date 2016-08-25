@@ -1,14 +1,15 @@
-12
+13
 2 1 2
-HST/ACS_WFC/F435W.dat                   10000     0
-HST/ACS_WFC/F475W.dat                   10000     0
-HST/ACS_WFC/F502N.dat                   10000     0
-HST/ACS_WFC/F550M.dat                   10000     0
-HST/ACS_WFC/F555W.dat                   10000     0
-HST/ACS_WFC/F606W.dat                   10000     0
-HST/ACS_WFC/F625W.dat                   10000     0
-HST/ACS_WFC/F658N.dat                   10000     0
-HST/ACS_WFC/F660N.dat                   10000     0
-HST/ACS_WFC/F775W.dat                   10000     0
-HST/ACS_WFC/F814W.dat                   10000     0
-HST/ACS_WFC/F850LP.dat                  10000     0
+HST/ACS/ACS_WFC_F435W                    7501     0
+HST/ACS/ACS_WFC_F475W                    6991     0
+HST/ACS/ACS_WFC_F502N                    7501     0
+HST/ACS/ACS_WFC_F550M                    7501     0
+HST/ACS/ACS_WFC_F555W                    7021     0
+HST/ACS/ACS_WFC_F606W                    7501     0
+HST/ACS/ACS_WFC_F625W                    7451     0
+HST/ACS/ACS_WFC_F658N                    7451     0
+HST/ACS/ACS_WFC_F660N                    7801     0
+HST/ACS/ACS_WFC_F775W                    6471     0
+HST/ACS/ACS_WFC_F814W                   10000     0
+HST/ACS/ACS_WFC_F850LP                   6925     0
+HST/ACS/ACS_WFC_F892N                    7925     0

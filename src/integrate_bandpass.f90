@@ -7,10 +7,11 @@
      implicit none
 
      character(len=256) :: data_dir
-     logical :: data_dir_set = .false., read_on_the_fly = .false.
+     logical :: data_dir_set = .false., read_on_the_fly = .true.
      logical, parameter :: debug = .false., do_check_total_flux=.false.
-
-     integer :: zero_point_type
+     logical, parameter :: do_write_bin_file = .true.
+     integer, allocatable :: zero_point_type(:) !number of filters
+     integer :: zero_point_default = zero_point_unknown
      
      type spectrum
         character(len=256) :: filename
@@ -101,7 +102,7 @@
        integer, intent(out) :: ierr
        integer :: io=69
        ierr=0
-       open(io,file=trim(binfile),form='unformatted',iostat=ierr)
+       open(io,file=trim(binfile),form='unformatted',iostat=ierr,action='write')
        if(ierr/=0) then
           ierr=-1
           return
@@ -129,7 +130,7 @@
        ierr=0
        filename = trim(data_dir) // '/' // trim(vega% filename)
        write(0,*)"reading: ",trim(filename)
-       open(1,file=trim(filename),iostat=ierr)
+       open(1,file=trim(filename),iostat=ierr,action='read')
        if(ierr/=0) return
        read(1,'(i6)',iostat=ierr) vega% npts
        if(ierr/=0) return
@@ -163,28 +164,40 @@
        ABflux = AB_flux_const * clight / (wave*wave)
      end function ABflux
      
-     subroutine read_filters(list,set,num,ierr)
+     subroutine read_filters(list,set,ZP,num,ierr)
        character(len=256), intent(in) :: list
        character(len=256) :: filename, filter_filename
        type(spectrum), allocatable, intent(out) :: set(:)
+       integer, allocatable, intent(out) :: ZP(:)
        integer, intent(out) :: num, ierr
        integer :: f, w, pts, skip, num_cols, col_wave, col_flux
        real(dp), pointer :: line(:)
+       character(len=12) :: ZPstring
        
        ierr=0
        filename=trim(data_dir)//'/'//trim(list)
-       open(1,file=trim(filename),iostat=ierr)
+       open(1,file=trim(filename),iostat=ierr,action='read')
        if(ierr/=0) return
        read(1,*) num
        allocate(set(num))
+       allocate(ZP(num))
        read(1,*) num_cols, col_wave, col_flux
        allocate(line(num_cols))
        do f = 1, num
-          read(1,'(a40,i5,1x,i5)') set(f)% filename, pts, skip
+          read(1,'(a40,i5,1x,i5, a12)') set(f)% filename, pts, skip, ZPstring
+          if(trim(adjustl(ZPstring))==Vega_string)then
+             ZP(f) = zero_point_Vega
+          elseif(trim(adjustl(ZPstring))==AB_string)then
+             ZP(f) = zero_point_AB
+          elseif(trim(adjustl(ZPstring))==ST_string)then
+             ZP(f) = zero_point_ST
+          else
+             ZP(f) = zero_point_default
+          endif
           set(f)% npts = pts - skip
           filter_filename = ''
-          filter_filename = trim(data_dir)//'/'//'filters/'//set(f)% filename
-          open(2,file=trim(filter_filename),iostat=ierr)
+          filter_filename = trim(data_dir)//'/filters/'//set(f)% filename
+          open(2,file=trim(filter_filename),iostat=ierr,action='read')
           if(ierr/=0) return
           allocate(set(f)% wave(set(f)% npts),set(f)% flux(set(f)% npts))
           if(skip > 0)then
@@ -215,7 +228,7 @@
        ierr=0
        num= natm
        !read header and get [Fe/H]
-       open(1,file=trim(file),iostat=ierr)
+       open(1,file=trim(file),iostat=ierr,action='read')
        if(ierr/=0) return
        read(1,'(14x,f4.1)')feh
        do i=1,21
@@ -257,7 +270,7 @@
        integer, intent(out) :: num, ierr
        integer :: s
        ierr=0
-       open(1,file=trim(list),iostat=ierr)
+       open(1,file=trim(list),iostat=ierr,action='read')
        if(ierr/=0) return
        read(1,*) num
        nullify(set)
@@ -283,6 +296,8 @@
        select case(choice)
        case(PHOENIX) 
           call load_phoenix_spec(s,ierr)
+       case(PHOENIX_ACES)
+          call load_phoenix_aces_spec(s,ierr)
        case(ATLAS_spec)
           call load_ATLAS_spec(s,ierr)
        case(ATLAS_SED)
@@ -298,15 +313,15 @@
        type(spectrum), intent(inout) :: s
        integer, intent(out) :: ierr
        character(len=256) :: binfile, filename
-       integer, parameter :: nwav=1700600 !nwav=30000
+       integer, parameter :: nwav=1219368 !1700600 !nwav=30000
        integer :: i
        ierr=0
        filename = trim(s% filename)
        binfile=trim(filename)//'.bin'
-       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
+       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old',action='read')
        if(ierr/=0) then  !no binary file; open ascii file and write binfile
           close(2)
-          open(2,file=trim(filename),iostat=ierr,status='old')
+          open(2,file=trim(filename),iostat=ierr,status='old',action='read')
           if(ierr/=0) then
              write(*,*) trim( filename)
              return
@@ -318,6 +333,7 @@
           allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
           do i=1,nwav
              read(2,*) s% wave(i), s% flux(i)
+             if(s% flux(i) - s% flux(i) /= 0) s% flux(i) = 0d0
           enddo
           s% M = 1d0
           s% R = 1d0
@@ -337,9 +353,10 @@
        integer :: tloc, gloc, teff
        character(len=4) :: tchar, gchar
        tloc = index(s% filename,"_t",back=.true.)
-       tchar= s% filename(tloc+2:tloc+5)
        gloc = index(s% filename,"g",back=.true.)
+       tchar= s% filename(tloc+3:tloc+7)
        gchar= s% filename(gloc+1:gloc+4)
+       print *, tchar, ' ', gchar
        read(gchar,'(f4.2)') s% logg
        read(tchar,'(i4)') teff
        s% Teff = dble(teff)
@@ -350,15 +367,16 @@
        integer, intent(out) :: ierr
        character(len=256) :: binfile, filename
        !integer, parameter :: nwav=26500
-       integer, parameter :: nwav=47378
+       !integer, parameter :: nwav=47378
+       integer, parameter :: nwav = 46666
        integer :: i
        ierr=0
        filename = trim(s% filename)
        binfile=trim(filename)//'.bin'
-       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
+       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old',action='read')
        if(ierr/=0) then  !'no binary file; open ascii file and write binfile
           close(2)
-          open(2,file=trim(filename),iostat=ierr,status='old')
+          open(2,file=trim(filename),iostat=ierr,status='old',action='read')
           if(ierr/=0) then
              write(*,*) trim( filename)
              return
@@ -381,7 +399,7 @@
           !convert flux from /hz/ster to /AA -> 4*pi*c/lambda^2 
           s% flux = pi4*clight*s% flux/(s% wave * s% wave) 
           s% Fbol = sigma * s% Teff**4
-          call write_bin_file(s, binfile,ierr)
+          if(do_write_bin_file) call write_bin_file(s, binfile,ierr)
        else
           call read_bin_file(2,s)
        endif
@@ -431,10 +449,10 @@
        ierr=0
        filename=trim(s% filename)
        binfile=trim(filename) // '.bin'
-       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
+       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old',action='read')
        if(ierr/=0)then
           close(2)
-          open(2,file=trim(filename),iostat=ierr,status='old')
+          open(2,file=trim(filename),iostat=ierr,status='old',action='read')
           if(ierr/=0)then
              write(*,*) trim(filename)
              return
@@ -485,10 +503,10 @@
        ierr=0
        filename=trim(s% filename)
        binfile=trim(filename) // '.bin'
-       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
+       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old',action='read')
        if(ierr/=0) then  !'no binary file; open ascii file and write binfile
           close(2)
-          open(2,file=trim(filename),iostat=ierr,status='old')
+          open(2,file=trim(filename),iostat=ierr,status='old',action='read')
           if(ierr/=0) then
              write(*,*) trim( filename)
              return
@@ -545,10 +563,10 @@
        ierr=0
        filename = trim(s% filename)
        binfile=trim(filename)//'.bin'
-       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old')
+       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old',action='read')
        if(ierr/=0) then  !'no binary file; open ascii file and write binfile
           close(2)
-          open(2,file=trim(filename),iostat=ierr,status='old')
+          open(2,file=trim(filename),iostat=ierr,status='old',action='read')
           if(ierr/=0) then
              write(*,*) trim( filename)
              return
@@ -569,6 +587,42 @@
        close(2)
        if(do_check_total_flux) call check_total_flux(s)
      end subroutine load_phoenix_spec
+
+     subroutine load_phoenix_ACES_spec(s,ierr)
+       type(spectrum), intent(inout) :: s
+       integer, intent(out) :: ierr
+       integer :: i
+       character(len=256) :: binfile, filename
+       ierr=0
+       filename = trim(s% filename)
+       binfile=trim(filename)//'.bin'
+       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old',action='read')
+       if(ierr/=0) then  !'no binary file; open ascii file and write binfile
+          close(2)
+          open(2,file=trim(filename),iostat=ierr,status='old',action='read')
+          if(ierr/=0) then
+             write(*,*) trim( filename)
+             return
+          endif
+          read(2,*) !skip header
+          read(2,*) s% Teff, s% logg, s% feh, s% alpha_Fe, s% npts
+          read(2,*) !skip header
+          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
+          do i=1,s% npts
+             read(2,*) s% wave(i), s% flux(i)
+          enddo
+          s% M = 1d0
+          s% R = 1d0
+          s% flux = phx_flux_conv * s% flux
+          s% Fbol = sigma * s% Teff**4
+          call write_bin_file(s, binfile,ierr)
+       else
+          call read_bin_file(2,s)
+       endif
+       close(2)
+       if(do_check_total_flux) call check_total_flux(s)
+     end subroutine load_phoenix_ACES_spec
+
 
      subroutine check_total_flux(s)
        !check integrated flux vs. expected from sigma*Teff^4
@@ -634,7 +688,7 @@
           
           if(smooth) call smooth_spectrum(s1,pass)
           
-          open(1,file=trim(out),iostat=ierr)
+          open(1,file=trim(out),iostat=ierr,action='write')
           if(ierr/=0) return
           write(*,'(a1,3f12.3,i10)') '#', s1% Teff, s1% logg, s1% FeH, s1% npts
           do i=1,s1% npts
@@ -646,7 +700,8 @@
      end subroutine write_spectrum
      
      function integrate_bandpass(s,f,ierr) result(integral)
-       type(spectrum), intent(in) :: s, f
+       type(spectrum), intent(in) :: s ! stellar spectrum
+       type(spectrum), intent(in) :: f ! filter throughput
        integer, intent(out) :: ierr
        integer :: i
        real(dp) :: integral
@@ -659,7 +714,7 @@
           write(0,*) "*WARNING: No overlap between spectrum and filter*"
           write(*,*) f% wave(1), f% wave(f% npts)
           write(*,*) s% wave(1), s% wave(s% npts)
-          write(*,*) s% filename
+          write(*,*) s% filename, f% filename
           stop
           return
        endif

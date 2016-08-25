@@ -1,0 +1,25 @@
+23
+2 1 2
+UBVRI/Bessell_U.txt                        25     0
+UBVRI/Bessell_B.txt                        21     0
+UBVRI/Bessell_V.txt                        28     0
+UBVRI/Bessell_R.txt                        37     0
+UBVRI/Bessell_I.txt                        23     0
+2MASS/2MASS_J.dat                         108     0
+2MASS/2MASS_H.dat                          58     0
+2MASS/2MASS_Ks.dat                         75     0
+Kepler/Kepler_Kp.dat                      623     0
+Kepler/Kepler_D51.dat                      21     0
+Hipparcos/Hipparcos_Hp.txt                 56     0
+Hipparcos/Tycho_B.txt                      32     0
+Hipparcos/Tycho_V.txt                      45     0
+Gaia/Gaia_G.txt                           362     0
+SDSS/SDSS_u.txt                            47     0    AB
+SDSS/SDSS_g.txt                            89     0    AB
+SDSS/SDSS_r.txt                            75     0    AB
+SDSS/SDSS_i.txt                            89     0    AB
+SDSS/SDSS_z.txt                           141     0    AB
+WISE/WISE_W1.dat                          398     0
+WISE/WISE_W2.dat                          548     0
+WISE/WISE_W3.dat                         2559     0
+WISE/WISE_W4.dat                         2559     0
