@@ -296,8 +296,6 @@
        select case(choice)
        case(PHOENIX) 
           call load_phoenix_spec(s,ierr)
-       case(PHOENIX_ACES)
-          call load_phoenix_aces_spec(s,ierr)
        case(ATLAS_flux)
           call load_ATLAS_flux(s,ierr)
        case(ATLAS_spec)
@@ -633,42 +631,6 @@
        close(2)
        if(do_check_total_flux) call check_total_flux(s)
      end subroutine load_phoenix_spec
-
-     subroutine load_phoenix_ACES_spec(s,ierr)
-       type(spectrum), intent(inout) :: s
-       integer, intent(out) :: ierr
-       integer :: i
-       character(len=256) :: binfile, filename
-       ierr=0
-       filename = trim(s% filename)
-       binfile=trim(filename)//'.bin'
-       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old',action='read')
-       if(ierr/=0) then  !'no binary file; open ascii file and write binfile
-          close(2)
-          open(2,file=trim(filename),iostat=ierr,status='old',action='read')
-          if(ierr/=0) then
-             write(*,*) trim( filename)
-             return
-          endif
-          read(2,*) !skip header
-          read(2,*) s% Teff, s% logg, s% feh, s% alpha_Fe, s% npts
-          read(2,*) !skip header
-          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
-          do i=1,s% npts
-             read(2,*) s% wave(i), s% flux(i)
-          enddo
-          s% M = 1d0
-          s% R = 1d0
-          s% flux = phx_flux_conv * s% flux
-          s% Fbol = sigma * s% Teff**4
-          call write_bin_file(s, binfile,ierr)
-       else
-          call read_bin_file(2,s)
-       endif
-       close(2)
-       if(do_check_total_flux) call check_total_flux(s)
-     end subroutine load_phoenix_ACES_spec
-
 
      subroutine check_total_flux(s)
        !check integrated flux vs. expected from sigma*Teff^4

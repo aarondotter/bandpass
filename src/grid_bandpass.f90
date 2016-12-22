@@ -236,7 +236,7 @@ contains
           write(*,*) trim(filename), ' ', trim(prefix)
           read_on_the_fly = .false.
           call read_ck2003(filename,spectra,num_spectra,ierr)
-       case(PHOENIX:PHOENIX_ACES)
+       case(PHOENIX:ATLAS_FLUX)
           i0=index(filename,'/',back=.true.)+1
           i1=index(filename,'.',back=.true.)-1
           prefix=filename(i0:i1)
@@ -513,7 +513,7 @@ contains
     write(*,*) ' SYNTHE  low res=  5  '
     write(*,*) ' RAUCH post-AGB =  6  ' 
     write(*,*) ' Koester DA WDs =  7  '
-    write(*,*) ' PHOENIX ACES   =  8  '
+    write(*,*) ' ATLAS flux     =  8  '
     write(*,*) '                      '
     write(*,*) '        N = 1 - 16    '
     write(*,*) ' HST_WFC3       =  1  '
