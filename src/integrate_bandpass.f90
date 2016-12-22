@@ -298,6 +298,8 @@
           call load_phoenix_spec(s,ierr)
        case(PHOENIX_ACES)
           call load_phoenix_aces_spec(s,ierr)
+       case(ATLAS_flux)
+          call load_ATLAS_flux(s,ierr)
        case(ATLAS_spec)
           call load_ATLAS_spec(s,ierr)
        case(ATLAS_SED)
@@ -309,6 +311,50 @@
        end select
      end subroutine load_spec
 
+     subroutine load_ATLAS_flux(s,ierr)
+       type(spectrum), intent(inout) :: s
+       integer, intent(out) :: ierr
+       character(len=256) :: binfile, filename
+       integer, parameter :: nwav=30000
+       integer :: i
+       ierr=0
+       filename = trim(s% filename)
+       binfile=trim(filename)//'.bin'
+       open(2,file=trim(binfile),iostat=ierr,form='unformatted',status='old',action='read')
+       if(ierr/=0) then  !no binary file; open ascii file and write binfile
+          close(2)
+          open(2,file=trim(filename),iostat=ierr,status='old',action='read')
+          if(ierr/=0) then
+             write(*,*) trim( filename)
+             return
+          endif
+          s% filename = s% filename
+          !call teff_logg_from_spec_file(s)
+
+          read(2,'(4x,f8.0,9x,f8.4)') s% Teff, s% logg
+          read(2,*)
+          
+          s% feh = 0d0
+          s% npts = nwav
+          allocate(s% wave(s% npts), s% flux(s% npts), s% extinction(s% npts))
+          do i=1,nwav
+             read(2,*) s% wave(i), s% flux(i)
+             if(s% flux(i) - s% flux(i) /= 0) s% flux(i) = 0d0
+          enddo
+          s% M = 1d0
+          s% R = 1d0
+          !convert flux from /hz/ster to /AA -> 4*pi*c/lambda^2 
+          s% flux = pi4*clight*s% flux/(s% wave * s% wave) 
+          s% Fbol = sigma * s% Teff**4
+          call write_bin_file(s, binfile,ierr)
+       else
+          call read_bin_file(2,s)
+       endif
+       close(2)
+       if(do_check_total_flux) call check_total_flux(s)
+     end subroutine load_ATLAS_flux
+
+     
      subroutine load_ATLAS_spec(s,ierr)
        type(spectrum), intent(inout) :: s
        integer, intent(out) :: ierr

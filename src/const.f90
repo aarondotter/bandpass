@@ -12,6 +12,7 @@
      integer, parameter :: PHOENIX=3
      integer, parameter :: ATLAS_spec=4
      integer, parameter :: ATLAS_SED=5
+     integer, parameter :: ATLAS_flux=9
      integer, parameter :: RAUCH=6
      integer, parameter :: KOESTER=7     
      integer, parameter :: PHOENIX_ACES=8
