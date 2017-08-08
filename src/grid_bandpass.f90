@@ -283,10 +283,10 @@ contains
           call rotational_broadening(spectra(i),ierr)
           if(ierr/=0) cycle
 
-!$omp critical
-          outfile=trim(spectra(i)% filename)//'.out'
-          call write_spectrum(spectra(i), outfile , ierr)
-!$omp end critical
+!!;!$omp critical
+!!;          outfile=trim(spectra(i)% filename)//'.out'
+!!;          call write_spectrum(spectra(i), outfile , ierr)
+!!;!$omp end critical
           
           do j=1,num_Rv
              do k=1,num_Av
