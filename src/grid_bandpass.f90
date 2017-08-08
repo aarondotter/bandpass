@@ -9,13 +9,16 @@ program grid_bandpass
   character(len=64) :: photometric_system_string=''
   integer :: count, choice, phot_system, ierr
   logical :: new_table_style = .true.
+  integer, allocatable :: zero_point_type(:) !number of filters
   !logical :: do_CNONa = .false., do_NGC6752 = .true., do_BTSettl=.false.
   integer, parameter:: num_Av = 1, num_Rv = 1
   !integer, parameter :: num_Av=13, num_Rv=1
-  !integer, parameter :: num_Av = 4, num_Rv = 1
+  integer :: redshift_type
+  real(dp) :: redshift_value, vrot
   real(dp) :: Av(num_Av), Rv(num_Rv)
   
   ierr = 0
+  my_data_dir='/home/dotter/science/Spectra'
   
   !test - no reddening
   Rv=[3.1d0]
@@ -26,12 +29,7 @@ program grid_bandpass
   !Rv = [ 3.1d0 ]
   
   count = command_argument_count()
-  
-  my_data_dir='/home/dotter/science/Spectra'
-  !my_data_dir='/coala/dotter/science/Spectra'
-  
-  call set_data_dir(my_data_dir)
-      
+        
   if(count>=2)then
      !process command line arguments
      call get_command_argument(1,arg)
@@ -46,12 +44,20 @@ program grid_bandpass
         if(trim(arg)=='old' .or. trim(arg)=='OLD') new_table_style=.false.
      endif
 
+     
+     call set_data_dir(my_data_dir)
+     
      call setup(phot_system)
+
+     redshift_type = velocity_km_s
+     redshift_value = 3.0d2 !300 km/s
+
+     vrot = 0.0d0 ! 250 km/s
      
      if(choice==VEGAZP)then
         call do_vega(filter_list,ierr)
      else
-        call do_one_set(choice,filter_list,spectra_list,suffix,ierr)
+        call do_one_set(choice, filter_list, spectra_list, suffix, redshift_type, redshift_value, vrot, ierr)
      endif
   else
      call write_usage_details
@@ -131,10 +137,13 @@ contains
 
   end subroutine do_vega
   
-  subroutine do_one_set(choice,filter_list,spectra_list,suffix,ierr)
+  subroutine do_one_set(choice,filter_list,spectra_list,suffix,redshift_type,redshift_value,vrot,ierr)
     integer, intent(in) :: choice
     character(len=256), intent(in) :: filter_list, spectra_list
     character(len=16), intent(in) :: suffix
+    integer, intent(in) :: redshift_type
+    real(dp), intent(in) :: redshift_value
+    real(dp), intent(in) :: vrot
     integer, intent(out) :: ierr
     character(len=256) :: outfile, filename, prefix
     character(len=20), allocatable :: filter_name(:)
@@ -185,8 +194,7 @@ contains
        i0 = index(filter(i)% filename, '/', .true.)+1
        i1 = index(filter(i)% filename, '.', .true.)-1
        if(i1<0) i1=len_trim(filter(i)% filename)
-       filter_name(i) = filter(i)% filename(i0:i1)
-       filter_name(i) = adjustr(filter_name(i))
+       filter_name(i) = adjustr(filter(i)% filename(i0:i1))
        select case(zero_point_type(i))
        case(zero_point_Vega)
           ZP(i) = integrate_bandpass(vega,filter(i),ierr)
@@ -210,7 +218,7 @@ contains
     else
        open(99,file=trim(spectra_list),iostat=ierr)
        if(ierr/=0) then
-          write(*,*) 'failed to open spectra_list'
+          write(*,*) 'failed to open list of lists ', trim(spectra_list)
           return
        endif
     endif
@@ -267,6 +275,19 @@ contains
           if(read_on_the_fly) call load_spec(choice,spectra(i),ierr)
 !$omp end critical
           if(ierr/=0) cycle
+          
+          !do redshift correction
+          call set_redshift(redshift_type,redshift_value,spectra(i),ierr)
+          if(ierr/=0) cycle
+          spectra(i)% vrot = vrot
+          call rotational_broadening(spectra(i),ierr)
+          if(ierr/=0) cycle
+
+!$omp critical
+          outfile=trim(spectra(i)% filename)//'.out'
+          call write_spectrum(spectra(i), outfile , ierr)
+!$omp end critical
+          
           do j=1,num_Rv
              do k=1,num_Av
                 call extinction_for_spectrum(spectra(i),Av(k),Rv(j))
@@ -447,19 +468,19 @@ contains
        write(*,*) ' doing FSPS'
        filter_list='lists/fsps.list'
        suffix='.FSPS'
-       zero_point_type=zero_point_AB
+       zero_point_default=zero_point_AB
        photometric_system_string = 'FSPS superset (AB)'
     case(DECam)
        write(*,*) ' doing DECam'
        filter_list='lists/DECam_filter.list'
        suffix='.DECam'
-       zero_point_type=zero_point_AB
+       zero_point_default=zero_point_AB
        photometric_system_string = 'DECam (AB)'
     case(GALEX)
        write(*,*) ' doing GALEX'
        filter_list='lists/GALEX_filter.list'
        suffix='.GALEX'
-       zero_point_type=zero_point_AB
+       zero_point_default=zero_point_AB
        photometric_system_string = 'GALEX (AB)'
     case(JHKLM)
        write(*,*) ' doing Bessell & Brett JHKLLpM'
@@ -491,6 +512,12 @@ contains
        suffix='.phill'
        zero_point_default=zero_point_vega
        photometric_system_string = ' potpourri (Vega & AB)'
+    case(GSAOI)
+       write(*,*) ' doing GSAOI filters'
+       filter_list = 'lists/GSAOI_filter.list'
+       suffix='.GSAOI'
+       zero_point_default = zero_point_vega
+       photometric_system_string = 'Gemini GSAOI (Vega)'
     case default
        write(*,*) ' doing nothing!'
        filter_list = ''
@@ -539,6 +566,7 @@ contains
     write(*,*) ' WFIRST         = 21  '
     write(*,*) ' Robo-AO        = 22  '
     write(*,*) ' Phill          = 23  '
+    write(*,*) ' Gemini GSAOI   = 24  '
     write(*,*)
 
   end subroutine write_usage_details

@@ -1,5 +1,5 @@
 FC=gfortran
-FLAGS= -fopenmp -O2 -ffree-form
+FLAGS= -fopenmp -O2
 WARN= -Wall -pedantic
 DBG= -g -fcheck=all -fbacktrace
 COMPILE=$(FC) $(FLAGS) $(WARN) $(DBG)

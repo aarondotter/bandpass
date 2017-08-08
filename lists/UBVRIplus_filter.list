@@ -1,4 +1,4 @@
-14
+16
 2 1 2
 UBVRI/Bessell_U.txt                        25     0
 UBVRI/Bessell_B.txt                        21     0
@@ -14,4 +14,6 @@ Hipparcos/Hipparcos_Hp.txt                 56     0
 Hipparcos/Tycho_B.txt                      32     0
 Hipparcos/Tycho_V.txt                      45     0
 Gaia/Gaia_G.txt                           362     0
+Gaia/Gaia_BP.txt                          362     0
+Gaia/Gaia_RP.txt                          362     0
 

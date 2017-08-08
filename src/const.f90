@@ -40,7 +40,12 @@
      integer, parameter :: WFIRST = 21
      integer, parameter :: RoboAO = 22
      integer, parameter :: Phill = 23
+     integer, parameter :: GSAOI = 24
 
+     !index for doppler shift
+     integer, parameter :: velocity_km_s = 1
+     integer, parameter :: redshift_z = 2
+     
      !index for types of zeropoints
      integer, parameter :: zero_point_unknown = 0
      integer, parameter :: zero_point_Vega    = 1   
@@ -65,6 +70,7 @@
     real(dp), parameter :: pc = 3.0856770322224d18, pc10=1d1*pc ! 10 parsec
     real(dp), parameter :: pi = 3.141592653589793d0, pi4=4d0*pi
     real(dp), parameter :: AAcm = 1d8  ! AA per cm
+    real(dp), parameter :: AAkm = 1d13 ! AA per km
     real(dp), parameter :: phx_flux_conv = 1d0/AAcm   ! PHOENIX unit conversion
     real(dp), parameter :: WD_flux_conv = pi/AAcm !Rauch/Koester unit conversion
     real(dp), parameter :: ST_flux_const = 3.631d-09 ! erg/s/cm^2/AA
