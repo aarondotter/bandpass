@@ -43,6 +43,7 @@
      integer, parameter :: GSAOI = 24
 
      !index for doppler shift
+     integer, parameter :: none = 0
      integer, parameter :: velocity_km_s = 1
      integer, parameter :: redshift_z = 2
      

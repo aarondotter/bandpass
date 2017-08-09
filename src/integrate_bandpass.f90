@@ -78,7 +78,7 @@ contains
        ierr=-1
     endif
     !correct the wavelength array
-    s% wave = (1d0 + s% redshift)*s% wave      
+    if(ierr==0) s% wave = (1d0 + s% redshift)*s% wave      
   end subroutine set_redshift
 
   subroutine set_data_dir(my_data_dir)
@@ -470,8 +470,8 @@ contains
     integer, intent(out) :: ierr
     character(len=256) :: binfile, filename
     !integer, parameter :: nwav=26500
-    integer, parameter :: nwav=47378
-    !integer, parameter :: nwav = 46666
+    !integer, parameter :: nwav=47378
+    integer, parameter :: nwav = 46666
     !integer, parameter :: nwav=54790
     integer :: i
     ierr=0

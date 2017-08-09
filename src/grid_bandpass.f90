@@ -22,11 +22,16 @@ program grid_bandpass
   
   !test - no reddening
   Rv=[3.1d0]
-  Av=[0d0] !, 0.12d0, 0.15d0, 0.17d0]
-
+  Av=[0d0] !, 0.12d0, 0.15d0, 0.17d0
+  
   !standard Av,Rv
   !Av = [ 0d0, 0.05d0, 0.1d0, 0.15d0, 0.2d0, 0.3d0, 0.4d0, 0.6d0, 0.8d0, 1d0, 2d0, 4d0, 6d0 ]
   !Rv = [ 3.1d0 ]
+
+  !
+  redshift_type = none
+  redshift_value = 0.0d0
+  vrot = 0.0d0
   
   count = command_argument_count()
         
@@ -44,15 +49,19 @@ program grid_bandpass
         if(trim(arg)=='old' .or. trim(arg)=='OLD') new_table_style=.false.
      endif
 
+     if(choice>0.and.count==5)then
+        call get_command_argument(4,arg)
+        read(arg,*) redshift_value
+        redshift_type = velocity_km_s
+        write(*,*) ' redshift, velocity (km/s) = ', redshift_value
+        call get_command_argument(5,arg)
+        read(arg,*) vrot
+        write(*,*) ' rotational broadening, vrot (km/s) = ', vrot
+     endif
      
      call set_data_dir(my_data_dir)
      
      call setup(phot_system)
-
-     redshift_type = velocity_km_s
-     redshift_value = 3.0d2 !300 km/s
-
-     vrot = 0.0d0 ! 250 km/s
      
      if(choice==VEGAZP)then
         call do_vega(filter_list,ierr)
